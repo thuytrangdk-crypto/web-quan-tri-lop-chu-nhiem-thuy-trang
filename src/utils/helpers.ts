@@ -164,8 +164,16 @@ export const resizeImageBase64 = (
 
 export const parseExcelDate = (val: unknown): string => {
   if (!val) return '';
+  if (val instanceof Date) {
+    if (!isNaN(val.getTime())) {
+      const y = val.getFullYear();
+      const m = String(val.getMonth() + 1).padStart(2, '0');
+      const d = String(val.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+  }
   if (typeof val === 'number') {
-    // Excel date numeric format
+    // Excel date numeric format (days since 1899-12-30)
     const dateObj = new Date(Math.round((val - 25569) * 86400 * 1000));
     if (!isNaN(dateObj.getTime())) {
       const y = dateObj.getFullYear();
@@ -175,6 +183,12 @@ export const parseExcelDate = (val: unknown): string => {
     }
   }
   const cleanStr = String(val).trim();
+  // Format YYYY-MM-DD
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(cleanStr)) {
+    const parts = cleanStr.split('-');
+    return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+  }
+  // Format DD/MM/YYYY or D/M/YYYY
   if (cleanStr.includes('/')) {
     const parts = cleanStr.split('/');
     if (parts.length === 3) {
@@ -184,10 +198,32 @@ export const parseExcelDate = (val: unknown): string => {
       return `${year}-${month}-${day}`;
     }
   }
-  if (cleanStr.includes('-') && cleanStr.split('-').length === 3) {
+  // Format DD.MM.YYYY or D.M.YYYY
+  if (cleanStr.includes('.')) {
+    const parts = cleanStr.split('.');
+    if (parts.length === 3) {
+      const day = parts[0].padStart(2, '0');
+      const month = parts[1].padStart(2, '0');
+      const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+      return `${year}-${month}-${day}`;
+    }
+  }
+  // Format DD-MM-YYYY
+  if (cleanStr.includes('-')) {
     const parts = cleanStr.split('-');
-    if (parts[0].length === 4) return cleanStr; // YYYY-MM-DD
-    if (parts[2].length === 4) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      }
+      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+  }
+  // Pure 8-digit string DDMMYYYY
+  if (/^\d{8}$/.test(cleanStr)) {
+    const day = cleanStr.substring(0, 2);
+    const month = cleanStr.substring(2, 4);
+    const year = cleanStr.substring(4, 8);
+    return `${year}-${month}-${day}`;
   }
   return cleanStr;
 };

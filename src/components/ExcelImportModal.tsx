@@ -53,7 +53,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [importMode, setImportMode] = useState<'append' | 'replace'>('append');
+  const [importMode, setImportMode] = useState<'append' | 'replace'>('replace'); // Default to replace as requested
   const [isConfirmedDobRequirement, setIsConfirmedDobRequirement] = useState(true);
   const [showRequirementDetails, setShowRequirementDetails] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -85,53 +85,138 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         const rawJson: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
         if (!rawJson || rawJson.length < 2) {
-          setErrorMessage('File Excel trống hoặc không có hàng tiêu đề!');
+          setErrorMessage('File Excel trống hoặc không có nội dung dữ liệu!');
           setIsProcessing(false);
           return;
         }
 
-        const headers = (rawJson[0] || []).map((h) =>
-          h ? String(h).toLowerCase().trim() : ''
-        );
+        // 1. DYNAMIC HEADER ROW DETECTION:
+        // Quét 15 dòng đầu tiên để tự động tìm dòng tiêu đề chứa cột Họ và tên (đặc biệt hỗ trợ file xuất từ SMAS, VnEdu, CSDL ngành)
+        let headerRowIdx = -1;
+        let nameIdx = -1;
+        let lastNameIdx = -1;
+        let firstNameIdx = -1;
+        let dobIdx = -1;
+        let genderIdx = -1;
+        let parentIdx = -1;
+        let phoneIdx = -1;
+        let addressIdx = -1;
 
-        const nameIdx = headers.findIndex(
-          (h) => h.includes('họ') && (h.includes('tên') || h.includes('ten'))
-        );
-        const dobIdx = headers.findIndex(
-          (h) => h.includes('ngày sinh') || h.includes('ngay sinh') || h.includes('sinh') || h.includes('dob')
-        );
-        const genderIdx = headers.findIndex(
-          (h) => h.includes('giới tính') || h.includes('gioi tinh') || h.includes('phái')
-        );
-        const parentIdx = headers.findIndex(
-          (h) => h.includes('phụ huynh') || h.includes('phu huynh') || h.includes('bố') || h.includes('mẹ')
-        );
-        const phoneIdx = headers.findIndex(
-          (h) =>
-            h.includes('sđt') ||
-            h.includes('sdt') ||
-            h.includes('điện thoại') ||
-            h.includes('dien thoai') ||
-            h.includes('phone')
-        );
-        const addressIdx = headers.findIndex(
-          (h) => h.includes('địa chỉ') || h.includes('dia chi')
-        );
+        for (let r = 0; r < Math.min(rawJson.length, 15); r++) {
+          const rowHeaders = (rawJson[r] || []).map((h) =>
+            h ? String(h).toLowerCase().trim() : ''
+          );
 
-        if (nameIdx === -1) {
-          setErrorMessage("Không tìm thấy cột 'Họ và tên' trong file Excel!");
+          const nIdx = rowHeaders.findIndex(
+            (h) =>
+              (h.includes('họ') && (h.includes('tên') || h.includes('ten'))) ||
+              h === 'họ và tên' ||
+              h === 'họ tên' ||
+              h === 'hoten' ||
+              h === 'ho va ten'
+          );
+          const fIdx = rowHeaders.findIndex(
+            (h) => h === 'tên' || h === 'ten' || h.endsWith(' tên')
+          );
+          const lIdx = rowHeaders.findIndex(
+            (h) =>
+              h.includes('họ đệm') ||
+              h.includes('ho dem') ||
+              h.includes('họ và tên đệm') ||
+              h === 'họ' ||
+              h === 'ho'
+          );
+
+          if (nIdx !== -1 || (fIdx !== -1 && lIdx !== -1)) {
+            headerRowIdx = r;
+            nameIdx = nIdx;
+            firstNameIdx = fIdx;
+            lastNameIdx = lIdx;
+
+            // Tìm cột Ngày sinh
+            dobIdx = rowHeaders.findIndex(
+              (h) =>
+                h.includes('ngày sinh') ||
+                h.includes('ngay sinh') ||
+                h.includes('sinh') ||
+                h.includes('dob') ||
+                h.includes('năm sinh') ||
+                h.includes('nam sinh') ||
+                h === 'ns' ||
+                h.includes('ng.sinh')
+            );
+
+            // Tìm cột Giới tính
+            genderIdx = rowHeaders.findIndex(
+              (h) =>
+                h.includes('giới tính') ||
+                h.includes('gioi tinh') ||
+                h.includes('phái') ||
+                h.includes('nam/nữ') ||
+                h.includes('nam/nu') ||
+                h === 'gt'
+            );
+
+            // Tìm cột Phụ huynh
+            parentIdx = rowHeaders.findIndex(
+              (h) =>
+                h.includes('phụ huynh') ||
+                h.includes('phu huynh') ||
+                h.includes('bố') ||
+                h.includes('mẹ') ||
+                h.includes('cha') ||
+                h.includes('người giám hộ')
+            );
+
+            // Tìm cột Số điện thoại
+            phoneIdx = rowHeaders.findIndex(
+              (h) =>
+                h.includes('sđt') ||
+                h.includes('sdt') ||
+                h.includes('điện thoại') ||
+                h.includes('dien thoai') ||
+                h.includes('phone') ||
+                h.includes('liên hệ') ||
+                h.includes('dđ')
+            );
+
+            // Tìm cột Địa chỉ
+            addressIdx = rowHeaders.findIndex(
+              (h) =>
+                h.includes('địa chỉ') ||
+                h.includes('dia chi') ||
+                h.includes('nơi ở') ||
+                h.includes('thường trú') ||
+                h.includes('tổ/thôn')
+            );
+
+            break;
+          }
+        }
+
+        if (headerRowIdx === -1) {
+          setErrorMessage("Không tìm thấy dòng tiêu đề chứa cột 'Họ và tên' trong file Excel!");
           setIsProcessing(false);
           return;
         }
 
         const rowsResult: ParsedRow[] = [];
 
-        for (let i = 1; i < rawJson.length; i++) {
+        for (let i = headerRowIdx + 1; i < rawJson.length; i++) {
           const row = rawJson[i];
           if (!row || row.length === 0) continue;
 
-          const rawName = row[nameIdx] ? String(row[nameIdx]).trim() : '';
-          if (!rawName) continue; // Skip completely empty names
+          // Lấy họ và tên
+          let rawName = '';
+          if (nameIdx !== -1 && row[nameIdx]) {
+            rawName = String(row[nameIdx]).trim();
+          } else if (lastNameIdx !== -1 && firstNameIdx !== -1) {
+            const lastName = row[lastNameIdx] ? String(row[lastNameIdx]).trim() : '';
+            const firstName = row[firstNameIdx] ? String(row[firstNameIdx]).trim() : '';
+            rawName = `${lastName} ${firstName}`.trim();
+          }
+
+          if (!rawName || rawName.length < 2) continue; // Bỏ qua các dòng trống
 
           let rawDob = dobIdx > -1 && row[dobIdx] ? parseExcelDate(row[dobIdx]) : '';
           let rawGender =
@@ -139,8 +224,12 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               ? String(row[genderIdx]).trim().toLowerCase()
               : '';
 
-          // Auto fix if gender and dob were swapped
-          if (rawDob.toLowerCase() === 'nam' || rawDob.toLowerCase() === 'nữ' || rawDob.toLowerCase() === 'nu') {
+          // Tự động hoán đổi nếu cột Giới tính và Ngày sinh bị lệch
+          if (
+            rawDob.toLowerCase() === 'nam' ||
+            rawDob.toLowerCase() === 'nữ' ||
+            rawDob.toLowerCase() === 'nu'
+          ) {
             rawGender = rawDob;
             rawDob = genderIdx > -1 && row[genderIdx] ? parseExcelDate(row[genderIdx]) : '';
           }
@@ -157,22 +246,19 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           let statusMsg = 'Hợp lệ';
           const isMissingDob = !rawDob;
 
-          if (!rawName || rawName.length < 2) {
-            isValid = false;
-            statusMsg = 'Tên không hợp lệ';
-          } else if (isMissingDob) {
-            // DOB is critical because it's the student login and password!
-            isValid = false;
-            statusMsg = 'Thiếu ngày sinh (Không thể cấp TK)';
-          } else if (importMode === 'append') {
+          if (isMissingDob) {
+            statusMsg = 'Hợp lệ (Chưa có ngày sinh)';
+          }
+
+          if (importMode === 'append') {
             const isDuplicate = existingStudents.some(
               (s) =>
                 s.name.toLowerCase() === rawName.toLowerCase() &&
-                s.dob === rawDob
+                (s.dob === rawDob || (!s.dob && !rawDob))
             );
             if (isDuplicate) {
               isValid = false;
-              statusMsg = 'Đã có trong danh sách';
+              statusMsg = 'Đã có trong lớp (Trùng)';
             }
           }
 
@@ -192,7 +278,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         }
 
         if (rowsResult.length === 0) {
-          setErrorMessage('Không tìm thấy dòng học sinh nào trong file!');
+          setErrorMessage('Không tìm thấy học sinh nào trong file!');
         } else {
           setParsedRows(rowsResult);
         }
@@ -211,13 +297,14 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     const validOnes = parsedRows.filter((r) => r.isValid);
     if (validOnes.length === 0) return;
 
+    // Khi importMode là 'replace', danh sách xuất phát là rỗng [] (xóa hoàn toàn học sinh cũ)
     const baseList: Student[] = importMode === 'replace' ? [] : [...existingStudents];
     const accumulated: Student[] = [...baseList];
 
-    const newStudents: Student[] = validOnes.map((item) => {
-      const generatedId = generateStudentId(item.data.dob, accumulated);
-      // Student password is explicitly formatted as their Date of Birth (e.g. DD/MM/YYYY)
-      const dobDisplayPassword = formatDisplayDate(item.data.dob);
+    const newStudents: Student[] = validOnes.map((item, idx) => {
+      const fallbackDob = item.data.dob || `2012-01-${String((idx % 28) + 1).padStart(2, '0')}`;
+      const generatedId = generateStudentId(fallbackDob, accumulated);
+      const dobDisplayPassword = item.data.dob ? formatDisplayDate(item.data.dob) : generatedId;
 
       const student: Student = {
         id: generatedId,
@@ -228,13 +315,14 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         phone: item.data.phone,
         address: item.data.address,
         avatar: '',
-        password: dobDisplayPassword || generatedId,
+        password: dobDisplayPassword,
         grades: {},
       };
       accumulated.push(student);
       return student;
     });
 
+    // Gọi trực tiếp hàm onImport với mode được chọn
     onImport(newStudents, importMode);
     onClose();
   };
@@ -312,7 +400,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
                       <div className="bg-white/80 p-2 rounded-lg border border-amber-200/60">
-                        <strong className="text-emerald-700">1. Cột 'Họ và tên':</strong> Bắt buộc (Ví dụ: Nguyễn Văn An)
+                        <strong className="text-emerald-700">1. Cột 'Họ và tên':</strong> Bắt buộc (hoặc tách 2 cột Họ đệm + Tên)
                       </div>
                       <div className="bg-white/80 p-2 rounded-lg border border-amber-200/60">
                         <strong className="text-emerald-700">2. Cột 'Ngày sinh':</strong> Bắt buộc (Định dạng: <code>dd/mm/yyyy</code>, VD: <code>15/05/2012</code>)
@@ -336,25 +424,54 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             </div>
           </div>
 
-          {/* CÂU HỎI LỰA CHỌN CHẾ ĐỘ NHẬP DANH SÁCH */}
-          <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl space-y-3">
+          {/* CÂU HỎI LỰA CHỌN CHẾ ĐỘ NHẬP DANH SÁCH (HIỂN THỊ XUYÊN SUỐT CẢ TRƯỚC VÀ SAU KHI CHỌN FILE) */}
+          <div className="bg-slate-50 border-2 border-slate-200 p-4 rounded-2xl space-y-3 shadow-xs">
             <div className="flex items-center justify-between">
               <label className="text-xs font-black text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
                 <HelpCircle className="w-4 h-4 text-blue-600" />
-                Câu hỏi: Thầy/Cô muốn nhập danh sách học sinh theo hình thức nào?
+                Thầy/Cô muốn nhập danh sách học sinh theo hình thức nào?
               </label>
-              <span className="text-[11px] text-slate-500">
-                Hiện có: <strong>{existingStudents.length} học sinh</strong> trong lớp
+              <span className="text-[11px] text-slate-600">
+                Hiện có: <strong className="text-blue-700">{existingStudents.length} học sinh</strong> trong lớp
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Option 2: Replace (ƯU TIÊN VÀ MẶC ĐỊNH CHO THẦY CÔ CẦN THAY THẾ) */}
+              <div
+                onClick={() => setImportMode('replace')}
+                className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
+                  importMode === 'replace'
+                    ? 'border-red-600 bg-red-50/80 shadow-md ring-2 ring-red-200'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
+                    importMode === 'replace'
+                      ? 'border-red-600 bg-red-600 text-white'
+                      : 'border-gray-300 bg-white'
+                  }`}
+                >
+                  {importMode === 'replace' && <div className="w-2 h-2 rounded-full bg-white" />}
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-black text-red-900">
+                    <RefreshCw className="w-3.5 h-3.5 text-red-600" />
+                    Thay thế toàn bộ danh sách lớp (Khuyên dùng)
+                  </div>
+                  <p className="text-[11px] text-gray-600 mt-1 leading-snug">
+                    Xóa sạch toàn bộ học sinh cũ hiện tại, <strong>chỉ lưu đúng danh sách học sinh từ file Excel này</strong>.
+                  </p>
+                </div>
+              </div>
+
               {/* Option 1: Append */}
               <div
                 onClick={() => setImportMode('append')}
                 className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
                   importMode === 'append'
-                    ? 'border-emerald-600 bg-emerald-50/70 shadow-xs'
+                    ? 'border-emerald-600 bg-emerald-50/80 shadow-md ring-2 ring-emerald-200'
                     : 'border-slate-200 bg-white hover:border-slate-300'
                 }`}
               >
@@ -373,36 +490,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                     Thêm bổ sung vào danh sách hiện có
                   </div>
                   <p className="text-[11px] text-gray-500 mt-1 leading-snug">
-                    Giữ lại <strong>{existingStudents.length} học sinh cũ</strong>, chỉ nạp thêm học sinh mới từ file Excel (tự động bỏ qua bạn trùng tên và ngày sinh).
-                  </p>
-                </div>
-              </div>
-
-              {/* Option 2: Replace */}
-              <div
-                onClick={() => setImportMode('replace')}
-                className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
-                  importMode === 'replace'
-                    ? 'border-red-500 bg-red-50/70 shadow-xs'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
-              >
-                <div
-                  className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
-                    importMode === 'replace'
-                      ? 'border-red-600 bg-red-600 text-white'
-                      : 'border-gray-300 bg-white'
-                  }`}
-                >
-                  {importMode === 'replace' && <div className="w-2 h-2 rounded-full bg-white" />}
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-900">
-                    <RefreshCw className="w-3.5 h-3.5 text-red-600" />
-                    Làm mới &amp; Thay thế toàn bộ danh sách lớp
-                  </div>
-                  <p className="text-[11px] text-gray-500 mt-1 leading-snug">
-                    Xóa danh sách học sinh cũ của lớp, nạp mới hoàn toàn danh sách từ file Excel và cấp lại tài khoản học sinh.
+                    Giữ lại <strong>{existingStudents.length} học sinh cũ</strong>, chỉ nạp thêm học sinh mới từ file Excel.
                   </p>
                 </div>
               </div>
@@ -474,11 +562,11 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-bold">
                   <span className="flex items-center gap-1.5 text-emerald-800 bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Hợp lệ (Đủ ngày sinh &amp; TK): {validCount}
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Hợp lệ: {validCount} học sinh
                   </span>
                   {missingDobCount > 0 && (
                     <span className="flex items-center gap-1.5 text-amber-800 bg-amber-100 px-3 py-1.5 rounded-xl border border-amber-200">
-                      <AlertTriangle className="w-4 h-4 text-amber-600" /> Thiếu ngày sinh: {missingDobCount}
+                      <AlertTriangle className="w-4 h-4 text-amber-600" /> Chưa có ngày sinh: {missingDobCount} (hệ thống sẽ cấp ID tự động)
                     </span>
                   )}
                   {invalidCount > 0 && (
@@ -529,8 +617,9 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                               {formatDisplayDate(row.data.dob)}
                             </span>
                           ) : (
-                            <span className="text-red-600 font-bold italic flex items-center gap-1">
-                              <AlertTriangle className="w-3.5 h-3.5" /> Chưa có ngày sinh
+                            <span className="text-amber-700 bg-amber-100/70 px-2 py-0.5 rounded-lg text-[10px] font-bold border border-amber-200 flex items-center gap-1 w-fit">
+                              <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                              Tạo mật khẩu theo mã ID
                             </span>
                           )}
                         </td>
@@ -567,7 +656,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                   htmlFor="confirmDobCheckbox"
                   className="text-xs text-emerald-950 font-bold leading-relaxed cursor-pointer select-none"
                 >
-                  Tôi xác nhận đã kiểm tra cột Ngày tháng năm sinh để cấp Tài khoản &amp; Mật khẩu đăng nhập cho {validCount} học sinh này (theo đúng quy định bảo mật riêng tư của học sinh).
+                  Tôi xác nhận kiểm tra danh sách và đồng ý cấp Tài khoản &amp; Mật khẩu đăng nhập cho {validCount} học sinh này theo quy định bảo mật riêng tư.
                 </label>
               </div>
             </div>
@@ -576,15 +665,16 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
         {/* Modal Footer */}
         <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/80 flex flex-col sm:flex-row justify-between items-center gap-3">
-          <div className="text-xs text-gray-500 flex items-center gap-1.5">
-            <span className="font-bold text-gray-700">Chế độ đã chọn:</span>
-            {importMode === 'append' ? (
-              <span className="px-2.5 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 font-bold text-[11px]">
-                Thêm bổ sung ({existingStudents.length} học sinh hiện tại + {validCount} học sinh mới)
+          <div className="text-xs text-gray-600 flex items-center gap-2">
+            <span className="font-bold">Chế độ thực hiện:</span>
+            {importMode === 'replace' ? (
+              <span className="px-3 py-1 rounded-xl bg-red-100 text-red-800 font-black text-xs border border-red-200 flex items-center gap-1.5">
+                <RefreshCw className="w-3.5 h-3.5 text-red-600 animate-spin" />
+                THAY THẾ TOÀN BỘ (Chỉ giữ {validCount} học sinh mới)
               </span>
             ) : (
-              <span className="px-2.5 py-0.5 rounded-lg bg-red-100 text-red-800 font-bold text-[11px]">
-                Thay thế toàn bộ ({validCount} học sinh mới)
+              <span className="px-3 py-1 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-xs border border-emerald-200">
+                Thêm bổ sung ({existingStudents.length} học sinh cũ + {validCount} bạn mới)
               </span>
             )}
           </div>
@@ -601,16 +691,17 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               type="button"
               disabled={validCount === 0 || !isConfirmedDobRequirement || isProcessing}
               onClick={handleImportValid}
-              className={`flex-1 sm:flex-none px-6 py-2.5 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 ${
+              className={`flex-1 sm:flex-none px-6 py-2.5 text-white font-black rounded-xl text-xs sm:text-sm shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 ${
                 importMode === 'replace'
-                  ? 'bg-red-600 hover:bg-red-700 disabled:opacity-50'
-                  : 'bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50'
-              }`}
+                  ? 'bg-red-600 hover:bg-red-700 shadow-red-200'
+                  : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <UserCheck className="w-4 h-4" />
               <span>
-                {importMode === 'replace' ? 'Thay thế & Nhập' : 'Nhập'}{' '}
-                {validCount > 0 ? `${validCount} học sinh` : 'danh sách'}
+                {importMode === 'replace'
+                  ? `Xác nhận THAY THẾ bằng ${validCount} học sinh`
+                  : `Nhập ${validCount} học sinh vào lớp`}
               </span>
             </button>
           </div>

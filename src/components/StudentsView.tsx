@@ -32,6 +32,8 @@ interface StudentsViewProps {
   onUpdateStudent: (student: Partial<Student>) => void;
   onDeleteStudent: (studentId: string) => void;
   onBatchImportStudents: (newStudents: Student[], mode?: 'append' | 'replace') => void;
+  onRemoveSampleStudents?: () => void;
+  onClearAllStudents?: () => void;
   isTeacher: boolean;
   currentStudentId?: string | null;
   onShowToast?: (msg: string, type?: 'success' | 'error') => void;
@@ -44,6 +46,8 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   onUpdateStudent,
   onDeleteStudent,
   onBatchImportStudents,
+  onRemoveSampleStudents,
+  onClearAllStudents,
   isTeacher,
   currentStudentId,
   onShowToast,
@@ -57,6 +61,29 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   const [studentToEdit, setStudentToEdit] = useState<Student | null>(null);
   const [isExcelOpen, setIsExcelOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [isConfirmClearAllOpen, setIsConfirmClearAllOpen] = useState(false);
+
+  // Detect initial 8 sample students
+  const sampleStudentIds = useMemo(
+    () =>
+      new Set([
+        '15052012',
+        '20082012',
+        '10112012',
+        '03022012',
+        '18092012',
+        '25122012',
+        '09042012',
+        '14072012',
+      ]),
+    []
+  );
+
+  const sampleStudentsCount = useMemo(() => {
+    return state.students.filter((s) => sampleStudentIds.has(s.id)).length;
+  }, [state.students, sampleStudentIds]);
+
+  const realStudentsCount = state.students.length - sampleStudentsCount;
 
   const today = getTodayStr();
 
@@ -202,10 +229,59 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                 <UserPlus className="w-4 h-4" />
                 <span>Thêm HS</span>
               </button>
+
+              {/* Clear All Students Button */}
+              {state.students.length > 0 && onClearAllStudents && (
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmClearAllOpen(true)}
+                  className="px-3 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-xl text-xs border border-red-200 transition-colors cursor-pointer flex items-center gap-1"
+                  title="Xóa toàn bộ danh sách lớp"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span className="hidden xl:inline">Làm sạch lớp</span>
+                </button>
+              )}
             </>
           )}
+
+          <div className="px-3 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-black border border-slate-200">
+            Tổng: {state.students.length} HS
+          </div>
         </div>
       </div>
+
+      {/* BANNER THÔNG BÁO VÀ NÚT LỌC SẠCH 8 HỌC SINH MẪU (NẾU ĐANG LẪN VÀO LỚP) */}
+      {sampleStudentsCount > 0 && realStudentsCount > 0 && isTeacher && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-3xl p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm animate-fadeIn">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-200">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-black text-amber-950 uppercase tracking-wide flex items-center gap-2 flex-wrap">
+                <span>Phát hiện {sampleStudentsCount} học sinh mẫu ban đầu đang lẫn trong danh sách</span>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-200 text-amber-900 border border-amber-300">
+                  Lớp hiện có {state.students.length} HS
+                </span>
+              </h4>
+              <p className="text-xs text-amber-900 mt-1 leading-relaxed">
+                Danh sách hiện gồm <strong>{realStudentsCount} học sinh thực tế của lớp</strong> và <strong>{sampleStudentsCount} học sinh mẫu</strong> mặc định (Nguyễn Văn An, Trần Thị Bình...). Bấm nút bên cạnh để xóa bỏ ngay 8 học sinh mẫu và chỉ giữ đúng {realStudentsCount} học sinh của lớp.
+              </p>
+            </div>
+          </div>
+          {onRemoveSampleStudents && (
+            <button
+              type="button"
+              onClick={onRemoveSampleStudents}
+              className="px-5 py-3 bg-amber-600 hover:bg-amber-700 text-white font-black rounded-2xl text-xs sm:text-sm shadow-md transition-all shrink-0 cursor-pointer flex items-center gap-2 whitespace-nowrap"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Xóa sạch 8 học sinh mẫu (Chỉ giữ {realStudentsCount} HS của lớp)</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Main Content: List or Grid */}
       <div className="flex-1 overflow-y-auto bg-white rounded-3xl shadow-xs border border-gray-100 p-4 relative min-h-[400px]">
@@ -497,7 +573,9 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
       <ExcelImportModal
         isOpen={isExcelOpen}
         existingStudents={state.students}
-        onImport={onBatchImportStudents}
+        onImport={(newStudents, mode) => {
+          onBatchImportStudents(newStudents, mode);
+        }}
         onClose={() => setIsExcelOpen(false)}
       />
 
@@ -508,6 +586,18 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
         confirmText="Xóa học sinh"
         onConfirm={handleConfirmDelete}
         onCancel={() => setStudentToDelete(null)}
+      />
+
+      <ConfirmModal
+        isOpen={isConfirmClearAllOpen}
+        title="Xác nhận làm sạch toàn bộ danh sách lớp"
+        message={`Bạn có chắc chắn muốn xóa toàn bộ ${state.students.length} học sinh hiện tại khỏi lớp không? Hành động này sẽ làm trống danh sách để bạn có thể tải lên file Excel mới tinh từ đầu.`}
+        confirmText="Xác nhận xóa tất cả"
+        onConfirm={() => {
+          onClearAllStudents?.();
+          setIsConfirmClearAllOpen(false);
+        }}
+        onCancel={() => setIsConfirmClearAllOpen(false)}
       />
     </div>
   );

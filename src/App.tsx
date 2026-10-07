@@ -326,40 +326,157 @@ export default function App() {
     showToast('Đã xóa học sinh khỏi danh sách');
   };
 
+  const INITIAL_SAMPLE_IDS = new Set([
+    '15052012',
+    '20082012',
+    '10112012',
+    '03022012',
+    '18092012',
+    '25122012',
+    '09042012',
+    '14072012',
+  ]);
+
   const handleBatchImportStudents = (
     newStudents: Student[],
-    mode: 'append' | 'replace' = 'append'
+    mode: 'append' | 'replace' = 'replace'
   ) => {
+    let nextStateToSave: AppState | null = null;
+
     setState((prev) => {
       let updatedStudents: Student[];
       let updatedAttendance = prev.attendance;
       let updatedDiscipline = prev.discipline;
       let updatedNotes = prev.notes;
+      let updatedSeating = prev.seatingChart;
 
       if (mode === 'replace') {
+        // REPLACE ENTIRELY: only keep the new list of students!
         updatedStudents = newStudents;
         const newIds = new Set(newStudents.map((s) => s.id));
         updatedAttendance = prev.attendance.filter((a) => newIds.has(a.studentId));
         updatedDiscipline = prev.discipline.filter((d) => newIds.has(d.studentId));
         updatedNotes = prev.notes.filter((n) => newIds.has(n.studentId));
+        updatedSeating = Object.fromEntries(
+          Object.entries(prev.seatingChart || {}).filter(([_, id]) => newIds.has(id))
+        );
       } else {
-        updatedStudents = [...prev.students, ...newStudents];
+        // Append mode: avoid duplicate additions
+        const existingNames = new Set(prev.students.map((s) => `${s.name.toLowerCase().trim()}_${s.dob}`));
+        const toAdd = newStudents.filter(
+          (s) => !existingNames.has(`${s.name.toLowerCase().trim()}_${s.dob}`)
+        );
+        updatedStudents = [...prev.students, ...toAdd];
       }
 
-      return {
+      nextStateToSave = {
         ...prev,
         students: updatedStudents,
         attendance: updatedAttendance,
         discipline: updatedDiscipline,
         notes: updatedNotes,
+        seatingChart: updatedSeating,
       };
+
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextStateToSave));
+      } catch (e) {}
+
+      return nextStateToSave;
     });
+
+    // Immediate sync to Supabase Cloud so other devices & reloads get the clean 44 students immediately
+    if (nextStateToSave && syncStatus.isTableReady) {
+      supabaseService.saveState(nextStateToSave).then((res) => {
+        if (res.success) {
+          setSyncStatus((s) => ({
+            ...s,
+            lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
+          }));
+        }
+      });
+    }
 
     showToast(
       mode === 'replace'
-        ? `Đã thay thế toàn bộ danh sách: ${newStudents.length} học sinh`
+        ? `Đã thay thế toàn bộ danh sách lớp: còn đúng ${newStudents.length} học sinh!`
         : `Đã nhập thành công ${newStudents.length} học sinh vào lớp`
     );
+  };
+
+  const handleRemoveSampleStudents = () => {
+    let nextStateToSave: AppState | null = null;
+    setState((prev) => {
+      const updatedStudents = prev.students.filter((s) => !INITIAL_SAMPLE_IDS.has(s.id));
+      const newIds = new Set(updatedStudents.map((s) => s.id));
+      const updatedAttendance = prev.attendance.filter((a) => newIds.has(a.studentId));
+      const updatedDiscipline = prev.discipline.filter((d) => newIds.has(d.studentId));
+      const updatedNotes = prev.notes.filter((n) => newIds.has(n.studentId));
+      const updatedSeating = Object.fromEntries(
+        Object.entries(prev.seatingChart || {}).filter(([_, id]) => newIds.has(id))
+      );
+
+      nextStateToSave = {
+        ...prev,
+        students: updatedStudents,
+        attendance: updatedAttendance,
+        discipline: updatedDiscipline,
+        notes: updatedNotes,
+        seatingChart: updatedSeating,
+      };
+
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextStateToSave));
+      } catch (e) {}
+
+      return nextStateToSave;
+    });
+
+    if (nextStateToSave && syncStatus.isTableReady) {
+      supabaseService.saveState(nextStateToSave).then((res) => {
+        if (res.success) {
+          setSyncStatus((s) => ({
+            ...s,
+            lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
+          }));
+        }
+      });
+    }
+
+    showToast('Đã xóa sạch 8 học sinh mẫu ban đầu, hiện chỉ giữ lại học sinh của lớp!');
+  };
+
+  const handleClearAllStudents = () => {
+    let nextStateToSave: AppState | null = null;
+    setState((prev) => {
+      nextStateToSave = {
+        ...prev,
+        students: [],
+        attendance: [],
+        discipline: [],
+        notes: [],
+        seatingChart: {},
+      };
+
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextStateToSave));
+      } catch (e) {}
+
+      return nextStateToSave;
+    });
+
+    if (nextStateToSave && syncStatus.isTableReady) {
+      supabaseService.saveState(nextStateToSave).then((res) => {
+        if (res.success) {
+          setSyncStatus((s) => ({
+            ...s,
+            lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
+          }));
+        }
+      });
+    }
+
+    showToast('Đã xóa toàn bộ học sinh của lớp!');
   };
 
   const handleUpdateAvatar = (studentId: string, base64: string) => {
@@ -673,6 +790,8 @@ export default function App() {
                   onUpdateStudent={handleUpdateStudent}
                   onDeleteStudent={handleDeleteStudent}
                   onBatchImportStudents={handleBatchImportStudents}
+                  onRemoveSampleStudents={handleRemoveSampleStudents}
+                  onClearAllStudents={handleClearAllStudents}
                   isTeacher={authRole === 'teacher'}
                   currentStudentId={authStudentId}
                   onShowToast={showToast}
