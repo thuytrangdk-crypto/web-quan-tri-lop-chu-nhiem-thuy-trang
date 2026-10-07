@@ -51,6 +51,44 @@ export const generateStudentId = (dob?: string, existingStudents: Student[] = []
   return finalId;
 };
 
+export const normalizeDateInput = (str: string): string => {
+  return str.trim().replace(/[\/\-\.\s]/g, '');
+};
+
+export const matchesStudentDob = (student: Student, input: string): boolean => {
+  if (!input) return false;
+  const cleanInput = normalizeDateInput(input);
+  if (!cleanInput) return false;
+
+  // Check against student.dob (format YYYY-MM-DD or DD/MM/YYYY)
+  if (student.dob) {
+    const cleanDob = normalizeDateInput(student.dob);
+    if (cleanInput === cleanDob) return true;
+
+    const parts = student.dob.split('-');
+    if (parts.length === 3) {
+      const ddmmyyyy = `${parts[2]}${parts[1]}${parts[0]}`;
+      const yyyymmdd = `${parts[0]}${parts[1]}${parts[2]}`;
+      if (cleanInput === ddmmyyyy || cleanInput === yyyymmdd) return true;
+    }
+  }
+
+  // Also match student.id (often DDMMYYYY like 15052012)
+  if (cleanInput.toUpperCase() === student.id.trim().toUpperCase()) return true;
+  if (normalizeDateInput(student.id).toUpperCase() === cleanInput.toUpperCase()) return true;
+
+  return false;
+};
+
+export const getStudentDobDisplay = (dob?: string): string => {
+  if (!dob) return '';
+  const parts = dob.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dob;
+};
+
 export const calculateConduct = (
   totalScore: number,
   thresholds: ConductThresholds = { good: 0, fair: -5, average: -10 }

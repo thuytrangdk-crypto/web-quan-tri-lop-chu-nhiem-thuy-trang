@@ -13,23 +13,31 @@ import {
   Grid3X3,
 } from 'lucide-react';
 import { AppState, Student } from '../types';
-import { formatDisplayDate, getTodayStr } from '../utils/helpers';
+import { calculateConduct, formatDisplayDate, getTodayStr } from '../utils/helpers';
 
 interface DashboardViewProps {
   state: AppState;
   onSelectStudent: (studentId: string) => void;
   onNavigate: (view: string) => void;
+  isTeacher?: boolean;
+  currentStudentId?: string | null;
+  onShowToast?: (msg: string, type?: 'success' | 'error') => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   state,
   onSelectStudent,
   onNavigate,
+  isTeacher = true,
+  currentStudentId,
+  onShowToast,
 }) => {
   const today = getTodayStr();
   const totalStudents = state.students.length;
   const maleCount = state.students.filter((s) => s.gender === 'Nam').length;
   const femaleCount = totalStudents - maleCount;
+
+  const currentStudent = state.students.find((s) => s.id === currentStudentId);
 
   // Absent today
   const absentToday = state.attendance.filter(
@@ -221,8 +229,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* 2 Main Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Cần chú ý (Attention list) */}
-        <div className="bg-white rounded-3xl shadow-xs border border-gray-100 overflow-hidden flex flex-col">
+        {/* Cần chú ý (Attention list for Teacher) OR Góc học tập (Personal for Student) */}
+        {isTeacher ? (
+          <div className="bg-white rounded-3xl shadow-xs border border-gray-100 overflow-hidden flex flex-col">
           <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-red-50/40">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-red-100 text-red-600 flex items-center justify-center">
@@ -299,6 +308,92 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             )}
           </div>
         </div>
+        ) : (
+          /* Student View: Personalized Card */
+          <div className="bg-white rounded-3xl shadow-xs border border-gray-100 overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-emerald-50/50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                  <Award className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-sm">Góc học tập của bạn</h3>
+                  <p className="text-[11px] text-gray-500">
+                    Thông tin thi đua, nề nếp và chuyên cần cá nhân
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full">
+                Học sinh
+              </span>
+            </div>
+
+            <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+              {currentStudent ? (
+                <>
+                  <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 text-white flex items-center justify-center font-black text-xl shadow-sm shrink-0 overflow-hidden">
+                      {currentStudent.avatar ? (
+                        <img
+                          src={currentStudent.avatar}
+                          alt={currentStudent.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        currentStudent.name.charAt(0)
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-gray-900 text-base uppercase truncate">
+                        {currentStudent.name}
+                      </h4>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Ngày sinh: <strong>{formatDisplayDate(currentStudent.dob)}</strong> • Giới tính: {currentStudent.gender}
+                      </p>
+                      <span className="inline-block mt-1 text-[11px] font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md font-semibold">
+                        Mã HS: {currentStudent.id}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-center">
+                    <div className="p-3 bg-emerald-50/80 rounded-xl border border-emerald-100">
+                      <span className="text-[11px] text-emerald-700 font-medium block">Khen thưởng</span>
+                      <strong className="text-lg text-emerald-800 font-black">
+                        {state.discipline.filter((d) => d.studentId === currentStudent.id && d.type === 'plus').length}
+                      </strong>
+                    </div>
+                    <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-100">
+                      <span className="text-[11px] text-amber-700 font-medium block">Điểm danh hôm nay</span>
+                      <strong className="text-sm text-amber-800 font-bold block mt-1">
+                        {(() => {
+                          const att = state.attendance.find((a) => a.studentId === currentStudent.id && a.date === today);
+                          if (!att) return 'Chưa điểm danh';
+                          if (att.status === 'c') return 'Có mặt';
+                          if (att.status === 'v') return 'Có phép';
+                          if (att.status === 'kp') return 'Không phép';
+                          return 'Đi muộn';
+                        })()}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => onSelectStudent(currentStudent.id)}
+                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <span>Xem toàn bộ Bảng điểm &amp; Hồ sơ của bạn</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </>
+              ) : (
+                <div className="text-center text-gray-400 py-8">
+                  Vui lòng đăng nhập để xem thông tin
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Hoạt động gần đây (Recent activity) */}
         <div className="bg-white rounded-3xl shadow-xs border border-gray-100 overflow-hidden flex flex-col">
@@ -343,10 +438,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     icon = <AlertTriangle className="w-4 h-4" />;
                   }
 
+                  const isSelf = act.studentId === currentStudentId;
+                  const handleActivityClick = () => {
+                    if (isTeacher || isSelf) {
+                      onSelectStudent(act.studentId);
+                    } else {
+                      onShowToast?.('Bảo mật: Bạn chỉ có quyền xem chi tiết hồ sơ của chính mình!', 'error');
+                    }
+                  };
+
                   return (
                     <li
                       key={act.id}
-                      onClick={() => onSelectStudent(act.studentId)}
+                      onClick={handleActivityClick}
                       className="p-4 flex items-start gap-3.5 hover:bg-gray-50/80 transition-colors cursor-pointer group"
                     >
                       <div

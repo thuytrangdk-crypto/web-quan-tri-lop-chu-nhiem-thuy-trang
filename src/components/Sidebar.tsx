@@ -10,6 +10,8 @@ import {
   Camera,
   ChevronDown,
   Cloud,
+  KeyRound,
+  UserCheck,
 } from 'lucide-react';
 import { resizeImageBase64 } from '../utils/helpers';
 import { SyncStatus } from '../services/supabaseService';
@@ -19,12 +21,16 @@ interface SidebarProps {
   onNavigate: (view: string) => void;
   className: string;
   classAvatar: string;
+  isTeacher?: boolean;
+  studentName?: string;
   onUpdateClassAvatar: (base64: string) => void;
   onOpenClassSwitch: () => void;
   onLogout: () => void;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
   onOpenSupabaseModal?: () => void;
+  onOpenChangePassword?: () => void;
+  onOpenMyProfile?: () => void;
   syncStatus?: SyncStatus;
 }
 
@@ -33,12 +39,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNavigate,
   className,
   classAvatar,
+  isTeacher = true,
+  studentName,
   onUpdateClassAvatar,
   onOpenClassSwitch,
   onLogout,
   isMobileOpen,
   onCloseMobile,
   onOpenSupabaseModal,
+  onOpenChangePassword,
+  onOpenMyProfile,
   syncStatus,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -158,64 +168,105 @@ export const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
 
-          <div className="pt-4 pb-2 px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-            Hệ thống
-          </div>
-
-          {onOpenSupabaseModal && (
+          {/* Quick My Profile for Student */}
+          {!isTeacher && onOpenMyProfile && (
             <button
               onClick={() => {
-                onOpenSupabaseModal();
+                onOpenMyProfile();
                 onCloseMobile();
               }}
-              className="w-full flex items-center justify-between px-3.5 py-3 rounded-xl font-bold text-xs sm:text-sm text-gray-600 hover:bg-emerald-50/60 hover:text-emerald-800 transition-all text-left cursor-pointer group"
-              title="Cấu hình & Đồng bộ hóa Supabase Cloud"
+              className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-bold text-xs sm:text-sm text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 transition-all text-left cursor-pointer border border-emerald-200/80 mt-2"
             >
-              <div className="flex items-center gap-3">
-                <Cloud className="w-5 h-5 text-emerald-600 group-hover:scale-110 transition-transform" />
-                <span>Supabase Cloud</span>
-              </div>
-              <span
-                className={`w-2.5 h-2.5 rounded-full ${
-                  syncStatus?.isTableReady
-                    ? 'bg-emerald-500 animate-pulse'
-                    : 'bg-amber-400'
-                }`}
-                title={
-                  syncStatus?.isTableReady
-                    ? 'Đã kết nối'
-                    : 'Cần khởi tạo bảng'
-                }
-              />
+              <UserCheck className="w-5 h-5 text-emerald-600" />
+              <span>Hồ sơ của tôi</span>
             </button>
           )}
 
-          <button
-            onClick={() => {
-              onNavigate('settings');
-              onCloseMobile();
-            }}
-            className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-bold text-xs sm:text-sm transition-all text-left cursor-pointer ${
-              currentView === 'settings'
-                ? 'bg-blue-50 text-blue-700 shadow-xs ring-1 ring-blue-100'
-                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            }`}
-          >
-            <Settings
-              className={`w-5 h-5 ${
-                currentView === 'settings' ? 'text-blue-600' : 'text-gray-400'
-              }`}
-            />
-            <span>Cài đặt</span>
-          </button>
+          {/* Teacher Only System Section */}
+          {isTeacher && (
+            <>
+              <div className="pt-4 pb-2 px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                Hệ thống
+              </div>
+
+              {onOpenChangePassword && (
+                <button
+                  onClick={() => {
+                    onOpenChangePassword();
+                    onCloseMobile();
+                  }}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-gray-600 hover:bg-blue-50/70 hover:text-blue-700 transition-all text-left cursor-pointer"
+                  title="Đổi mật khẩu tài khoản giáo viên"
+                >
+                  <KeyRound className="w-4 h-4 text-blue-500" />
+                  <span>Đổi mật khẩu GV</span>
+                </button>
+              )}
+
+              {onOpenSupabaseModal && (
+                <button
+                  onClick={() => {
+                    onOpenSupabaseModal();
+                    onCloseMobile();
+                  }}
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-gray-600 hover:bg-emerald-50/60 hover:text-emerald-800 transition-all text-left cursor-pointer group"
+                  title="Cấu hình & Đồng bộ hóa Supabase Cloud"
+                >
+                  <div className="flex items-center gap-3">
+                    <Cloud className="w-5 h-5 text-emerald-600 group-hover:scale-110 transition-transform" />
+                    <span>Supabase Cloud</span>
+                  </div>
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full ${
+                      syncStatus?.isTableReady
+                        ? 'bg-emerald-500 animate-pulse'
+                        : 'bg-amber-400'
+                    }`}
+                    title={
+                      syncStatus?.isTableReady
+                        ? 'Đã kết nối'
+                        : 'Cần khởi tạo bảng'
+                    }
+                  />
+                </button>
+              )}
+
+              <button
+                onClick={() => {
+                  onNavigate('settings');
+                  onCloseMobile();
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all text-left cursor-pointer ${
+                  currentView === 'settings'
+                    ? 'bg-blue-50 text-blue-700 shadow-xs ring-1 ring-blue-100'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <Settings
+                  className={`w-4 h-4 ${
+                    currentView === 'settings' ? 'text-blue-600' : 'text-gray-400'
+                  }`}
+                />
+                <span>Cài đặt</span>
+              </button>
+            </>
+          )}
         </nav>
 
         {/* Footer with Logout */}
         <div className="p-4 border-t border-gray-100 flex items-center justify-between shrink-0 bg-gray-50/50">
-          <span className="text-xs text-gray-400 font-bold">Trợ Lý Chủ Nhiệm</span>
+          <div className="truncate max-w-[130px]">
+            <span className="text-xs font-bold text-gray-700 block truncate">
+              {isTeacher ? 'Giáo viên' : studentName || 'Học sinh'}
+            </span>
+            <span className="text-[10px] text-gray-400 block truncate">
+              {isTeacher ? 'Quyền quản lý' : 'Xem tin & Lớp học'}
+            </span>
+          </div>
           <button
             onClick={onLogout}
             className="flex items-center gap-1.5 text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+            title="Đăng xuất khỏi hệ thống"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Thoát</span>

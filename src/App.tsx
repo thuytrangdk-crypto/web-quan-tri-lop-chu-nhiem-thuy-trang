@@ -21,6 +21,7 @@ import { SettingsView } from './components/SettingsView';
 import { StudentProfileModal } from './components/StudentProfileModal';
 import { ClassSwitchModal } from './components/ClassSwitchModal';
 import { SupabaseModal } from './components/SupabaseModal';
+import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { supabaseService, SyncStatus } from './services/supabaseService';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
@@ -83,6 +84,7 @@ export default function App() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isClassSwitchOpen, setIsClassSwitchOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
+  const [isTeacherPasswordModalOpen, setIsTeacherPasswordModalOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   // Supabase cloud sync status
@@ -567,34 +569,16 @@ export default function App() {
         />
       )}
 
-      {/* 2. Authenticated as Student: show Student Profile only */}
-      {authRole === 'student' && authStudentId && (
-        <StudentProfileModal
-          studentId={authStudentId}
-          state={state}
-          isTeacher={false}
-          onClose={() => {}}
-          onEditStudent={() => {}}
-          onUpdateAvatar={handleUpdateAvatar}
-          onSaveGrades={handleSaveGrades}
-          onAddDiscipline={handleAddDiscipline}
-          onDeleteDiscipline={handleDeleteDiscipline}
-          onAddNote={handleAddNote}
-          onDeleteNote={handleDeleteNote}
-          onChangePassword={handleChangePassword}
-          onLogout={handleLogout}
-          onShowToast={showToast}
-        />
-      )}
-
-      {/* 3. Authenticated as Teacher */}
-      {authRole === 'teacher' && (
+      {/* 2. Authenticated layout (Teacher or Student) */}
+      {authRole && (
         <>
           <Sidebar
             currentView={currentView}
             onNavigate={(view) => setCurrentView(view)}
             className={state.config.className}
             classAvatar={state.config.classAvatar}
+            isTeacher={authRole === 'teacher'}
+            studentName={state.students.find((s) => s.id === authStudentId)?.name}
             onUpdateClassAvatar={(base64) =>
               handleUpdateConfig({ classAvatar: base64 })
             }
@@ -603,6 +587,10 @@ export default function App() {
             isMobileOpen={isMobileSidebarOpen}
             onCloseMobile={() => setIsMobileSidebarOpen(false)}
             onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
+            onOpenChangePassword={() => setIsTeacherPasswordModalOpen(true)}
+            onOpenMyProfile={() => {
+              if (authStudentId) setSelectedStudentId(authStudentId);
+            }}
             syncStatus={syncStatus}
           />
 
@@ -611,31 +599,55 @@ export default function App() {
               title={pageTitles[currentView] || 'Trợ lý chủ nhiệm'}
               className={state.config.className}
               teacherName={state.config.teacherName}
+              isTeacher={authRole === 'teacher'}
+              studentName={state.students.find((s) => s.id === authStudentId)?.name}
               syncStatus={syncStatus}
               onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
               onOpenClassSwitch={() => setIsClassSwitchOpen(true)}
               onGoHome={() => setCurrentView('dashboard')}
               onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
+              onOpenChangePassword={() => setIsTeacherPasswordModalOpen(true)}
+              onOpenMyProfile={() => {
+                if (authStudentId) setSelectedStudentId(authStudentId);
+              }}
+              onLogout={handleLogout}
             />
 
             <main className="flex-1 overflow-y-auto p-4 lg:p-8 bg-gray-50/60 custom-scrollbar">
               {currentView === 'dashboard' && (
                 <DashboardView
                   state={state}
-                  onSelectStudent={(id) => setSelectedStudentId(id)}
+                  isTeacher={authRole === 'teacher'}
+                  currentStudentId={authStudentId}
+                  onSelectStudent={(id) => {
+                    if (authRole === 'teacher' || id === authStudentId) {
+                      setSelectedStudentId(id);
+                    } else {
+                      showToast('Bảo mật: Bạn chỉ có thể xem hồ sơ của chính mình!', 'error');
+                    }
+                  }}
                   onNavigate={(view) => setCurrentView(view)}
+                  onShowToast={showToast}
                 />
               )}
 
               {currentView === 'students' && (
                 <StudentsView
                   state={state}
-                  onSelectStudent={(id) => setSelectedStudentId(id)}
+                  onSelectStudent={(id) => {
+                    if (authRole === 'teacher' || id === authStudentId) {
+                      setSelectedStudentId(id);
+                    } else {
+                      showToast('Bảo mật: Bạn chỉ có quyền xem chi tiết hồ sơ của chính mình!', 'error');
+                    }
+                  }}
                   onAddStudent={handleAddStudent}
                   onUpdateStudent={handleUpdateStudent}
                   onDeleteStudent={handleDeleteStudent}
                   onBatchImportStudents={handleBatchImportStudents}
-                  isTeacher={true}
+                  isTeacher={authRole === 'teacher'}
+                  currentStudentId={authStudentId}
+                  onShowToast={showToast}
                 />
               )}
 
@@ -645,7 +657,16 @@ export default function App() {
                   onUpdateAttendanceStatus={handleUpdateAttendanceStatus}
                   onMarkAllPresent={handleMarkAllPresent}
                   onSaveNotice={() => showToast('Đã lưu dữ liệu điểm danh')}
-                  onSelectStudent={(id) => setSelectedStudentId(id)}
+                  onSelectStudent={(id) => {
+                    if (authRole === 'teacher' || id === authStudentId) {
+                      setSelectedStudentId(id);
+                    } else {
+                      showToast('Bảo mật: Bạn chỉ có thể xem hồ sơ của chính mình!', 'error');
+                    }
+                  }}
+                  isTeacher={authRole === 'teacher'}
+                  currentStudentId={authStudentId}
+                  onShowToast={showToast}
                 />
               )}
 
@@ -655,13 +676,19 @@ export default function App() {
                   onAddNotice={handleAddNotice}
                   onDeleteNotice={handleDeleteNotice}
                   onUpdateSeatingChart={handleUpdateSeatingChart}
-                  onSelectStudent={(id) => setSelectedStudentId(id)}
-                  isTeacher={true}
+                  onSelectStudent={(id) => {
+                    if (authRole === 'teacher' || id === authStudentId) {
+                      setSelectedStudentId(id);
+                    } else {
+                      showToast('Bảo mật: Bạn chỉ có thể xem hồ sơ của chính mình!', 'error');
+                    }
+                  }}
+                  isTeacher={authRole === 'teacher'}
                   onShowToast={showToast}
                 />
               )}
 
-              {currentView === 'settings' && (
+              {authRole === 'teacher' && currentView === 'settings' && (
                 <SettingsView
                   state={state}
                   onUpdateConfig={handleUpdateConfig}
@@ -677,14 +704,29 @@ export default function App() {
           </div>
 
           {/* Quick Class & Year Switch Modal */}
-          <ClassSwitchModal
-            isOpen={isClassSwitchOpen}
-            currentClass={state.config.className}
-            currentYear={state.config.schoolYear}
-            teacherName={state.config.teacherName}
-            availableClasses={state.config.availableClasses || ['9A5', '8A3', '7A1', '6A2']}
-            onSave={handleSaveClassSwitch}
-            onClose={() => setIsClassSwitchOpen(false)}
+          {authRole === 'teacher' && (
+            <ClassSwitchModal
+              isOpen={isClassSwitchOpen}
+              currentClass={state.config.className}
+              currentYear={state.config.schoolYear}
+              teacherName={state.config.teacherName}
+              availableClasses={state.config.availableClasses || ['9A5', '8A3', '7A1', '6A2']}
+              onSave={handleSaveClassSwitch}
+              onClose={() => setIsClassSwitchOpen(false)}
+            />
+          )}
+
+          {/* Teacher Change Password Modal */}
+          <ChangePasswordModal
+            isOpen={isTeacherPasswordModalOpen}
+            title="Đổi Mật khẩu Quản lý Giáo viên"
+            description="Cập nhật mật khẩu để bảo vệ hệ thống quản lý lớp học"
+            currentPassword={state.config.teacherPassword}
+            onSave={(newPass) => {
+              handleUpdateConfig({ teacherPassword: newPass });
+              showToast('Đã đổi mật khẩu giáo viên thành công!');
+            }}
+            onClose={() => setIsTeacherPasswordModalOpen(false)}
           />
 
           {/* Supabase Cloud Connection & Sync Modal */}
@@ -697,12 +739,12 @@ export default function App() {
             onClose={() => setIsSupabaseModalOpen(false)}
           />
 
-          {/* Teacher viewing a student profile */}
+          {/* Student Profile Modal (Accessible by Teacher for any student, or Student for self) */}
           {selectedStudentId && (
             <StudentProfileModal
               studentId={selectedStudentId}
               state={state}
-              isTeacher={true}
+              isTeacher={authRole === 'teacher'}
               onClose={() => setSelectedStudentId(null)}
               onEditStudent={(s) => {
                 setSelectedStudentId(null);

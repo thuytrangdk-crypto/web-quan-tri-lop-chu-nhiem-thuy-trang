@@ -12,6 +12,8 @@ import {
   Award,
   Phone,
   FolderOpen,
+  Lock,
+  UserCheck,
 } from 'lucide-react';
 import { AppState, Gender, Student } from '../types';
 import {
@@ -31,6 +33,8 @@ interface StudentsViewProps {
   onDeleteStudent: (studentId: string) => void;
   onBatchImportStudents: (newStudents: Student[]) => void;
   isTeacher: boolean;
+  currentStudentId?: string | null;
+  onShowToast?: (msg: string, type?: 'success' | 'error') => void;
 }
 
 export const StudentsView: React.FC<StudentsViewProps> = ({
@@ -41,6 +45,8 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   onDeleteStudent,
   onBatchImportStudents,
   isTeacher,
+  currentStudentId,
+  onShowToast,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [genderFilter, setGenderFilter] = useState<'all' | Gender>('all');
@@ -53,6 +59,14 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
 
   const today = getTodayStr();
+
+  const handleStudentClick = (studentId: string) => {
+    if (isTeacher || studentId === currentStudentId) {
+      onSelectStudent(studentId);
+    } else {
+      onShowToast?.('Bảo mật: Bạn chỉ có quyền xem chi tiết hồ sơ của chính mình!', 'error');
+    }
+  };
 
   // Filtered & sorted students
   const filteredStudents = useMemo(() => {
@@ -220,14 +234,37 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                 (a) => a.studentId === s.id && a.date === today
               );
 
+              const isSelf = s.id === currentStudentId;
+
               return (
                 <div
                   key={s.id}
-                  onClick={() => onSelectStudent(s.id)}
-                  className="bg-white border border-gray-200 hover:border-blue-400 rounded-2xl p-4 flex flex-col items-center text-center hover:shadow-md transition-all cursor-pointer relative group overflow-hidden"
+                  onClick={() => handleStudentClick(s.id)}
+                  className={`bg-white border rounded-2xl p-4 flex flex-col items-center text-center transition-all cursor-pointer relative group overflow-hidden ${
+                    isSelf
+                      ? 'border-emerald-400 ring-2 ring-emerald-200/70 shadow-sm'
+                      : !isTeacher
+                      ? 'border-gray-200 hover:border-amber-300'
+                      : 'border-gray-200 hover:border-blue-400 hover:shadow-md'
+                  }`}
                 >
-                  {/* Warning banner if high violations */}
-                  {vios >= 2 && (
+                  {/* Student Mode Badge: Self vs Classmate */}
+                  {!isTeacher && (
+                    <div className="absolute top-2 left-2">
+                      {isSelf ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-extrabold shadow-2xs">
+                          <UserCheck className="w-3 h-3 text-emerald-600" /> Bạn
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-500 text-[10px] font-semibold" title="Chỉ xem thông tin cơ bản">
+                          <Lock className="w-2.5 h-2.5 text-gray-400" />
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Warning banner if high violations (Teacher only) */}
+                  {isTeacher && vios >= 2 && (
                     <div
                       className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl-xl text-[10px]"
                       title="Nhiều vi phạm"
@@ -237,7 +274,9 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                   )}
 
                   {/* Avatar */}
-                  <div className="w-16 h-16 rounded-2xl bg-blue-50 border-2 border-blue-100 text-blue-700 flex items-center justify-center font-black text-xl mb-3 shadow-xs overflow-hidden group-hover:scale-105 transition-transform">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center font-black text-xl mb-3 shadow-xs overflow-hidden group-hover:scale-105 transition-transform ${
+                    isSelf ? 'bg-emerald-50 border-2 border-emerald-200 text-emerald-700' : 'bg-blue-50 border-2 border-blue-100 text-blue-700'
+                  }`}>
                     {s.avatar ? (
                       <img
                         src={s.avatar}
@@ -333,60 +372,84 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
-                {filteredStudents.map((s, index) => (
-                  <tr
-                    key={s.id}
-                    onClick={() => onSelectStudent(s.id)}
-                    className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
-                  >
-                    <td className="px-4 py-3 text-center text-gray-400 font-semibold group-hover:text-blue-600">
-                      {index + 1}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-black text-sm shrink-0 overflow-hidden">
-                          {s.avatar ? (
-                            <img
-                              src={s.avatar}
-                              alt={s.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            s.name.charAt(0)
-                          )}
+                {filteredStudents.map((s, index) => {
+                  const isSelf = s.id === currentStudentId;
+                  return (
+                    <tr
+                      key={s.id}
+                      onClick={() => handleStudentClick(s.id)}
+                      className={`transition-colors cursor-pointer group ${
+                        isSelf
+                          ? 'bg-emerald-50/60 hover:bg-emerald-100/50'
+                          : 'hover:bg-blue-50/50'
+                      }`}
+                    >
+                      <td className="px-4 py-3 text-center text-gray-400 font-semibold group-hover:text-blue-600">
+                        {index + 1}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 overflow-hidden ${
+                            isSelf ? 'bg-emerald-100 text-emerald-800 ring-2 ring-emerald-300' : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {s.avatar ? (
+                              <img
+                                src={s.avatar}
+                                alt={s.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              s.name.charAt(0)
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-bold text-gray-900 group-hover:text-blue-700 uppercase flex items-center gap-1.5">
+                              <span>{s.name}</span>
+                              {!isTeacher && isSelf && (
+                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                                  <UserCheck className="w-3 h-3" /> Bạn
+                                </span>
+                              )}
+                              {!isTeacher && !isSelf && (
+                                <span title="Hồ sơ riêng tư">
+                                  <Lock className="w-3 h-3 text-gray-300" />
+                                </span>
+                              )}
+                            </p>
+                            <span className="text-[10px] text-gray-400 font-mono">
+                              ID: {s.id}
+                            </span>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-bold text-gray-900 group-hover:text-blue-700 uppercase">
-                            {s.name}
-                          </p>
-                          <span className="text-[10px] text-gray-400 font-mono">
-                            ID: {s.id}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`font-semibold ${
-                          s.gender === 'Nam' ? 'text-blue-600' : 'text-pink-600'
-                        }`}
-                      >
-                        {s.gender}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {formatDisplayDate(s.dob)}
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      <p className="text-gray-800 font-medium">
-                        {s.parentName || '-'}
-                      </p>
-                      {s.phone && (
-                        <p className="text-gray-500 text-xs flex items-center gap-1 mt-0.5">
-                          <Phone className="w-3 h-3 text-gray-400" /> {s.phone}
-                        </p>
-                      )}
-                    </td>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`font-semibold ${
+                            s.gender === 'Nam' ? 'text-blue-600' : 'text-pink-600'
+                          }`}
+                        >
+                          {s.gender}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {formatDisplayDate(s.dob)}
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        {isTeacher || isSelf ? (
+                          <>
+                            <p className="text-gray-800 font-medium">
+                              {s.parentName || '-'}
+                            </p>
+                            {s.phone && (
+                              <p className="text-gray-500 text-xs flex items-center gap-1 mt-0.5">
+                                <Phone className="w-3 h-3 text-gray-400" /> {s.phone}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-gray-400 italic text-xs">Riêng tư (Chỉ GV &amp; Bạn)</span>
+                        )}
+                      </td>
                     {isTeacher && (
                       <td className="px-4 py-3 text-center">
                         <div className="flex justify-center gap-1.5">
@@ -408,8 +471,9 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
                       </td>
                     )}
                   </tr>
-                ))}
-              </tbody>
+                );
+              })}
+            </tbody>
             </table>
           </div>
         )}

@@ -227,15 +227,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     <div className="fixed inset-0 bg-gray-100 z-50 flex flex-col overflow-hidden animate-fadeIn">
       {/* Top Navbar */}
       <div className="bg-white border-b border-gray-200 h-16 shrink-0 flex items-center px-4 lg:px-8 shadow-xs relative z-20">
-        {isTeacher && (
-          <button
-            onClick={onClose}
-            className="text-gray-600 hover:text-gray-900 mr-4 p-2 rounded-xl hover:bg-gray-100 transition-colors flex items-center gap-1.5 font-bold text-xs sm:text-sm cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Quay lại</span>
-          </button>
-        )}
+        <button
+          onClick={onClose}
+          className="text-gray-600 hover:text-gray-900 mr-3 p-2 rounded-xl hover:bg-gray-100 transition-colors flex items-center gap-1.5 font-bold text-xs sm:text-sm cursor-pointer"
+          title="Quay lại giao diện lớp học"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span className="hidden sm:inline">Quay lại</span>
+        </button>
 
         <div className="flex-1 min-w-0">
           <h2 className="text-base sm:text-lg font-bold text-gray-900 truncate">

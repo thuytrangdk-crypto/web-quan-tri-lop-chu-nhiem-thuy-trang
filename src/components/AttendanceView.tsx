@@ -18,6 +18,9 @@ interface AttendanceViewProps {
   onMarkAllPresent: (date: string) => void;
   onSaveNotice: () => void;
   onSelectStudent: (studentId: string) => void;
+  isTeacher?: boolean;
+  currentStudentId?: string | null;
+  onShowToast?: (msg: string, type?: 'success' | 'error') => void;
 }
 
 export const AttendanceView: React.FC<AttendanceViewProps> = ({
@@ -26,6 +29,9 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   onMarkAllPresent,
   onSaveNotice,
   onSelectStudent,
+  isTeacher = true,
+  currentStudentId,
+  onShowToast,
 }) => {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayStr());
 
@@ -72,20 +78,28 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
 
         {/* Quick action buttons */}
         <div className="flex gap-2 w-full md:w-auto">
-          <button
-            onClick={() => onMarkAllPresent(selectedDate)}
-            className="flex-1 md:flex-none px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl text-xs sm:text-sm border border-emerald-200 flex items-center justify-center gap-2 transition-colors cursor-pointer"
-          >
-            <CheckCheck className="w-4 h-4" />
-            <span>Tất cả có mặt</span>
-          </button>
-          <button
-            onClick={onSaveNotice}
-            className="flex-1 md:flex-none px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md hover:shadow-blue-200 flex items-center justify-center gap-2 transition-all cursor-pointer"
-          >
-            <Save className="w-4 h-4" />
-            <span>Lưu điểm danh</span>
-          </button>
+          {isTeacher ? (
+            <>
+              <button
+                onClick={() => onMarkAllPresent(selectedDate)}
+                className="flex-1 md:flex-none px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl text-xs sm:text-sm border border-emerald-200 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <CheckCheck className="w-4 h-4" />
+                <span>Tất cả có mặt</span>
+              </button>
+              <button
+                onClick={onSaveNotice}
+                className="flex-1 md:flex-none px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md hover:shadow-blue-200 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <Save className="w-4 h-4" />
+                <span>Lưu điểm danh</span>
+              </button>
+            </>
+          ) : (
+            <div className="px-3.5 py-2 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs">
+              Chế độ theo dõi chuyên cần lớp
+            </div>
+          )}
         </div>
       </div>
 
@@ -109,16 +123,31 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
               );
               const currentStatus = currentRecord ? currentRecord.status : 'c';
 
+              const isSelf = student.id === currentStudentId;
+              const handleCardStudentClick = () => {
+                if (isTeacher || isSelf) {
+                  onSelectStudent(student.id);
+                } else {
+                  onShowToast?.('Bảo mật: Bạn chỉ có quyền xem chi tiết hồ sơ của chính mình!', 'error');
+                }
+              };
+
               return (
                 <div
                   key={student.id}
-                  className="bg-gray-50/70 border border-gray-200/90 rounded-2xl p-3.5 flex flex-col justify-between hover:border-blue-300 transition-colors"
+                  className={`border rounded-2xl p-3.5 flex flex-col justify-between transition-colors ${
+                    isSelf
+                      ? 'bg-emerald-50/50 border-emerald-300 ring-2 ring-emerald-200/60'
+                      : 'bg-gray-50/70 border-gray-200/90 hover:border-blue-300'
+                  }`}
                 >
                   <div
-                    onClick={() => onSelectStudent(student.id)}
+                    onClick={handleCardStudentClick}
                     className="flex items-center gap-3 mb-3 cursor-pointer group"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-black text-sm shrink-0 overflow-hidden">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 overflow-hidden ${
+                      isSelf ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-700'
+                    }`}>
                       {student.avatar ? (
                         <img
                           src={student.avatar}
@@ -130,8 +159,13 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors text-xs sm:text-sm uppercase truncate">
-                        {student.name}
+                      <p className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors text-xs sm:text-sm uppercase truncate flex items-center gap-1.5">
+                        <span>{student.name}</span>
+                        {!isTeacher && isSelf && (
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full font-bold">
+                            Bạn
+                          </span>
+                        )}
                       </p>
                       <p className="text-[11px] text-gray-400 font-mono">
                         ID: {student.id}
@@ -143,13 +177,17 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                   <div className="grid grid-cols-4 gap-1.5">
                     {/* Có mặt */}
                     <button
+                      type="button"
+                      disabled={!isTeacher}
                       onClick={() =>
-                        onUpdateAttendanceStatus(student.id, selectedDate, 'c')
+                        isTeacher && onUpdateAttendanceStatus(student.id, selectedDate, 'c')
                       }
-                      className={`py-2 px-1 flex flex-col items-center justify-center rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                      className={`py-2 px-1 flex flex-col items-center justify-center rounded-xl text-[11px] font-bold transition-all ${
+                        isTeacher ? 'cursor-pointer' : 'cursor-default'
+                      } ${
                         currentStatus === 'c'
                           ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-300'
-                          : 'bg-white text-gray-500 hover:bg-emerald-50 border border-gray-200'
+                          : 'bg-white text-gray-500 border border-gray-200 opacity-60'
                       }`}
                     >
                       <Check className="w-3.5 h-3.5 mb-0.5" />
@@ -158,13 +196,17 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
 
                     {/* Có phép */}
                     <button
+                      type="button"
+                      disabled={!isTeacher}
                       onClick={() =>
-                        onUpdateAttendanceStatus(student.id, selectedDate, 'v')
+                        isTeacher && onUpdateAttendanceStatus(student.id, selectedDate, 'v')
                       }
-                      className={`py-2 px-1 flex flex-col items-center justify-center rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                      className={`py-2 px-1 flex flex-col items-center justify-center rounded-xl text-[11px] font-bold transition-all ${
+                        isTeacher ? 'cursor-pointer' : 'cursor-default'
+                      } ${
                         currentStatus === 'v'
                           ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-300'
-                          : 'bg-white text-gray-500 hover:bg-blue-50 border border-gray-200'
+                          : 'bg-white text-gray-500 border border-gray-200 opacity-60'
                       }`}
                     >
                       <Mail className="w-3.5 h-3.5 mb-0.5" />
@@ -173,13 +215,17 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
 
                     {/* Không phép */}
                     <button
+                      type="button"
+                      disabled={!isTeacher}
                       onClick={() =>
-                        onUpdateAttendanceStatus(student.id, selectedDate, 'kp')
+                        isTeacher && onUpdateAttendanceStatus(student.id, selectedDate, 'kp')
                       }
-                      className={`py-2 px-1 flex flex-col items-center justify-center rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                      className={`py-2 px-1 flex flex-col items-center justify-center rounded-xl text-[11px] font-bold transition-all ${
+                        isTeacher ? 'cursor-pointer' : 'cursor-default'
+                      } ${
                         currentStatus === 'kp'
                           ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-300'
-                          : 'bg-white text-gray-500 hover:bg-red-50 border border-gray-200'
+                          : 'bg-white text-gray-500 border border-gray-200 opacity-60'
                       }`}
                     >
                       <XIcon className="w-3.5 h-3.5 mb-0.5" />
@@ -188,13 +234,17 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
 
                     {/* Đi muộn */}
                     <button
+                      type="button"
+                      disabled={!isTeacher}
                       onClick={() =>
-                        onUpdateAttendanceStatus(student.id, selectedDate, 'm')
+                        isTeacher && onUpdateAttendanceStatus(student.id, selectedDate, 'm')
                       }
-                      className={`py-2 px-1 flex flex-col items-center justify-center rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                      className={`py-2 px-1 flex flex-col items-center justify-center rounded-xl text-[11px] font-bold transition-all ${
+                        isTeacher ? 'cursor-pointer' : 'cursor-default'
+                      } ${
                         currentStatus === 'm'
                           ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-300'
-                          : 'bg-white text-gray-500 hover:bg-amber-50 border border-gray-200'
+                          : 'bg-white text-gray-500 border border-gray-200 opacity-60'
                       }`}
                     >
                       <Clock className="w-3.5 h-3.5 mb-0.5" />
