@@ -20,6 +20,8 @@ import { BoardView } from './components/BoardView';
 import { SettingsView } from './components/SettingsView';
 import { StudentProfileModal } from './components/StudentProfileModal';
 import { ClassSwitchModal } from './components/ClassSwitchModal';
+import { SupabaseModal } from './components/SupabaseModal';
+import { supabaseService, SyncStatus } from './services/supabaseService';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 const STORAGE_KEY = 'so_chu_nhiem_8a3_data';
@@ -80,7 +82,17 @@ export default function App() {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isClassSwitchOpen, setIsClassSwitchOpen] = useState(false);
+  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  // Supabase cloud sync status
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
+    isConnected: false,
+    isTableReady: false,
+    isSyncing: false,
+    lastSyncedAt: null,
+    errorMessage: null,
+  });
 
   // Persist state to localStorage
   useEffect(() => {
@@ -95,6 +107,123 @@ export default function App() {
   useEffect(() => {
     document.title = `${state.config.appName} - Lớp ${state.config.className}`;
   }, [state.config.appName, state.config.className]);
+
+  // Initial Supabase connection check and sync
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
+    const initSupabase = async () => {
+      const { isConnected, isTableReady, error } =
+        await supabaseService.checkConnection();
+
+      setSyncStatus((prev) => ({
+        ...prev,
+        isConnected,
+        isTableReady,
+        errorMessage: error || null,
+      }));
+
+      if (isTableReady) {
+        // Load remote data
+        const { state: remoteState } = await supabaseService.loadState();
+        if (remoteState && remoteState.students) {
+          setState((prev) => ({
+            ...prev,
+            ...remoteState,
+            config: {
+              ...prev.config,
+              ...remoteState.config,
+            },
+          }));
+          setSyncStatus((prev) => ({
+            ...prev,
+            lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
+          }));
+        }
+
+        // Subscribe to real-time changes from other tabs or devices
+        unsubscribe = supabaseService.subscribe((updatedRemote) => {
+          if (updatedRemote && updatedRemote.students) {
+            setState((prev) => ({
+              ...prev,
+              ...updatedRemote,
+            }));
+            setSyncStatus((prev) => ({
+              ...prev,
+              lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
+            }));
+          }
+        });
+      }
+    };
+
+    initSupabase();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
+  // Debounced auto-save to Supabase when state changes
+  useEffect(() => {
+    if (!syncStatus.isTableReady) return;
+
+    const timer = setTimeout(async () => {
+      setSyncStatus((prev) => ({ ...prev, isSyncing: true }));
+      const res = await supabaseService.saveState(state);
+      setSyncStatus((prev) => ({
+        ...prev,
+        isSyncing: false,
+        lastSyncedAt: res.success
+          ? new Date().toLocaleTimeString('vi-VN')
+          : prev.lastSyncedAt,
+        errorMessage: res.error || null,
+      }));
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [state, syncStatus.isTableReady]);
+
+  const handleCheckSupabaseConnection = async () => {
+    const res = await supabaseService.checkConnection();
+    setSyncStatus((prev) => ({
+      ...prev,
+      isConnected: res.isConnected,
+      isTableReady: res.isTableReady,
+      errorMessage: res.error || null,
+    }));
+    if (res.isTableReady) {
+      showToast('Đã kết nối thành công với Supabase Cloud!');
+    } else {
+      showToast(res.error || 'Cần chạy mã SQL tạo bảng trên Supabase.', 'error');
+    }
+  };
+
+  const handleSyncNow = async () => {
+    setSyncStatus((prev) => ({ ...prev, isSyncing: true }));
+    const res = await supabaseService.saveState(state);
+    setSyncStatus((prev) => ({
+      ...prev,
+      isSyncing: false,
+      lastSyncedAt: res.success ? new Date().toLocaleTimeString('vi-VN') : prev.lastSyncedAt,
+      errorMessage: res.error || null,
+    }));
+    if (res.success) {
+      showToast('Đã đồng bộ toàn bộ dữ liệu lên Supabase Cloud!');
+    } else {
+      showToast(res.error || 'Lỗi đồng bộ dữ liệu lên Supabase', 'error');
+    }
+  };
+
+  const handlePullRemote = async () => {
+    const res = await supabaseService.loadState();
+    if (res.state && res.state.students) {
+      setState(res.state);
+      showToast('Đã tải và áp dụng dữ liệu mới từ Supabase Cloud!');
+    } else {
+      showToast(res.error || 'Chưa có bản ghi nào trên Supabase Cloud.', 'error');
+    }
+  };
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     const id = generateId();
@@ -473,6 +602,8 @@ export default function App() {
             onLogout={handleLogout}
             isMobileOpen={isMobileSidebarOpen}
             onCloseMobile={() => setIsMobileSidebarOpen(false)}
+            onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
+            syncStatus={syncStatus}
           />
 
           <div className="flex-1 flex flex-col h-full overflow-hidden relative">
@@ -480,9 +611,11 @@ export default function App() {
               title={pageTitles[currentView] || 'Trợ lý chủ nhiệm'}
               className={state.config.className}
               teacherName={state.config.teacherName}
+              syncStatus={syncStatus}
               onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
               onOpenClassSwitch={() => setIsClassSwitchOpen(true)}
               onGoHome={() => setCurrentView('dashboard')}
+              onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
             />
 
             <main className="flex-1 overflow-y-auto p-4 lg:p-8 bg-gray-50/60 custom-scrollbar">
@@ -536,6 +669,8 @@ export default function App() {
                   onClearAllData={handleClearAllData}
                   onImportBackup={handleImportBackup}
                   onShowToast={showToast}
+                  syncStatus={syncStatus}
+                  onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
                 />
               )}
             </main>
@@ -550,6 +685,16 @@ export default function App() {
             availableClasses={state.config.availableClasses || ['9A5', '8A3', '7A1', '6A2']}
             onSave={handleSaveClassSwitch}
             onClose={() => setIsClassSwitchOpen(false)}
+          />
+
+          {/* Supabase Cloud Connection & Sync Modal */}
+          <SupabaseModal
+            isOpen={isSupabaseModalOpen}
+            syncStatus={syncStatus}
+            onCheckConnection={handleCheckSupabaseConnection}
+            onSyncNow={handleSyncNow}
+            onPullRemote={handlePullRemote}
+            onClose={() => setIsSupabaseModalOpen(false)}
           />
 
           {/* Teacher viewing a student profile */}

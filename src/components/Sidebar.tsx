@@ -9,8 +9,10 @@ import {
   X,
   Camera,
   ChevronDown,
+  Cloud,
 } from 'lucide-react';
 import { resizeImageBase64 } from '../utils/helpers';
+import { SyncStatus } from '../services/supabaseService';
 
 interface SidebarProps {
   currentView: string;
@@ -22,6 +24,8 @@ interface SidebarProps {
   onLogout: () => void;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
+  onOpenSupabaseModal?: () => void;
+  syncStatus?: SyncStatus;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -34,6 +38,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   isMobileOpen,
   onCloseMobile,
+  onOpenSupabaseModal,
+  syncStatus,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -155,6 +161,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="pt-4 pb-2 px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
             Hệ thống
           </div>
+
+          {onOpenSupabaseModal && (
+            <button
+              onClick={() => {
+                onOpenSupabaseModal();
+                onCloseMobile();
+              }}
+              className="w-full flex items-center justify-between px-3.5 py-3 rounded-xl font-bold text-xs sm:text-sm text-gray-600 hover:bg-emerald-50/60 hover:text-emerald-800 transition-all text-left cursor-pointer group"
+              title="Cấu hình & Đồng bộ hóa Supabase Cloud"
+            >
+              <div className="flex items-center gap-3">
+                <Cloud className="w-5 h-5 text-emerald-600 group-hover:scale-110 transition-transform" />
+                <span>Supabase Cloud</span>
+              </div>
+              <span
+                className={`w-2.5 h-2.5 rounded-full ${
+                  syncStatus?.isTableReady
+                    ? 'bg-emerald-500 animate-pulse'
+                    : 'bg-amber-400'
+                }`}
+                title={
+                  syncStatus?.isTableReady
+                    ? 'Đã kết nối'
+                    : 'Cần khởi tạo bảng'
+                }
+              />
+            </button>
+          )}
 
           <button
             onClick={() => {

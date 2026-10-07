@@ -1,22 +1,27 @@
 import React from 'react';
-import { Menu, GraduationCap, ChevronDown, Home } from 'lucide-react';
+import { Menu, GraduationCap, ChevronDown, Home, Cloud, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { SyncStatus } from '../services/supabaseService';
 
 interface HeaderProps {
   title: string;
   className: string;
   teacherName: string;
+  syncStatus?: SyncStatus;
   onOpenMobileSidebar: () => void;
   onOpenClassSwitch: () => void;
   onGoHome: () => void;
+  onOpenSupabaseModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   title,
   className,
   teacherName,
+  syncStatus,
   onOpenMobileSidebar,
   onOpenClassSwitch,
   onGoHome,
+  onOpenSupabaseModal,
 }) => {
   const teacherInitial = teacherName
     ? teacherName.trim().split(' ').pop()?.charAt(0).toUpperCase() || 'G'
@@ -68,6 +73,29 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="flex items-center gap-2.5">
+        {/* Supabase Sync Button */}
+        {onOpenSupabaseModal && (
+          <button
+            onClick={onOpenSupabaseModal}
+            className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+              syncStatus?.isTableReady
+                ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+            }`}
+            title="Trạng thái kết nối Supabase Cloud"
+          >
+            <Cloud className="w-3.5 h-3.5" />
+            <span>
+              {syncStatus?.isTableReady ? 'Supabase: Đã kết nối' : 'Cần tạo bảng Supabase'}
+            </span>
+            <span
+              className={`w-2 h-2 rounded-full ${
+                syncStatus?.isTableReady ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+              }`}
+            />
+          </button>
+        )}
+
         {/* Quick Home Button */}
         <button
           onClick={onGoHome}

@@ -13,10 +13,14 @@ import {
   AlertOctagon,
   Sparkles,
   Lock,
+  Cloud,
+  CheckCircle2,
+  ExternalLink,
 } from 'lucide-react';
 import { AppConfig, AppState, ConductThresholds, DisciplineType, Rule } from '../types';
 import { ConfirmModal } from './ConfirmModal';
 import { generateId } from '../utils/helpers';
+import { SyncStatus } from '../services/supabaseService';
 
 interface SettingsViewProps {
   state: AppState;
@@ -25,6 +29,8 @@ interface SettingsViewProps {
   onClearAllData: () => void;
   onImportBackup: (backupState: AppState) => void;
   onShowToast: (msg: string, type?: 'success' | 'error') => void;
+  syncStatus?: SyncStatus;
+  onOpenSupabaseModal?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -34,6 +40,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onClearAllData,
   onImportBackup,
   onShowToast,
+  syncStatus,
+  onOpenSupabaseModal,
 }) => {
   const [activeTab, setActiveTab] = useState<'general' | 'rules' | 'subjects' | 'data'>('general');
 
@@ -536,8 +544,62 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* TAB 4: DỮ LIỆU HỆ THỐNG */}
           {activeTab === 'data' && (
             <div className="space-y-6">
+              {/* Supabase Cloud Sync Section */}
+              <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                      <Cloud className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                        Đồng bộ Đám mây Supabase
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                            syncStatus?.isTableReady
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {syncStatus?.isTableReady ? 'Đã kích hoạt' : 'Cần cấu hình SQL'}
+                        </span>
+                      </h4>
+                      <p className="text-xs text-gray-500">
+                        Lưu trữ và đồng bộ hóa danh sách lớp, điểm số, hạnh kiểm trực tiếp lên Supabase
+                      </p>
+                    </div>
+                  </div>
+
+                  {onOpenSupabaseModal && (
+                    <button
+                      onClick={onOpenSupabaseModal}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
+                    >
+                      <Cloud className="w-3.5 h-3.5" />
+                      <span>Mở bảng điều khiển Supabase</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="text-xs text-emerald-900 bg-white/80 p-3 rounded-xl border border-emerald-100 flex items-center justify-between">
+                  <span>
+                    Trạng thái kết nối:{' '}
+                    <strong>
+                      {syncStatus?.isTableReady
+                        ? `Trực tuyến • Lần đồng bộ gần nhất: ${syncStatus?.lastSyncedAt || 'Vừa xong'}`
+                        : 'Chưa tạo bảng tro_ly_chu_nhiem_data trên Supabase'}
+                    </strong>
+                  </span>
+                  {syncStatus?.isTableReady && (
+                    <span className="flex items-center gap-1 text-emerald-700 font-bold">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Tự động đồng bộ
+                    </span>
+                  )}
+                </div>
+              </div>
+
               <h3 className="text-base font-bold text-red-600 border-b border-red-100 pb-3 flex items-center gap-2">
-                <Database className="w-5 h-5 text-red-600" /> Quản lý Dữ liệu Hệ thống
+                <Database className="w-5 h-5 text-red-600" /> Quản lý Dữ liệu Nội bộ &amp; Sao lưu
               </h3>
 
               <div className="bg-red-50/60 border border-red-200 rounded-2xl p-5 space-y-4">
