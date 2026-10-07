@@ -1,0 +1,6 @@
+{
+  "name": "Trợ lý chủ nhiệm",
+  "description": "Hệ thống Trợ lý chủ nhiệm thông minh: quản lý học sinh, sơ đồ chỗ ngồi, điểm danh, điểm số, bảng tin thi đua, nền nếp hạnh kiểm và liên lạc phụ huynh.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
