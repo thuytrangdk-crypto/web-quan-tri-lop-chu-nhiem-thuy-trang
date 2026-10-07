@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Calendar, Phone, Home, Sparkles } from 'lucide-react';
 import { Gender, Student } from '../types';
-import { generateStudentId } from '../utils/helpers';
+import { generateStudentId, formatDisplayDate } from '../utils/helpers';
 
 interface StudentFormModalProps {
   isOpen: boolean;
@@ -61,6 +61,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       });
     } else {
       const newId = generateStudentId(dob, existingStudents);
+      const dobDisplayPassword = formatDisplayDate(dob);
       onSave({
         id: newId,
         name: name.trim(),
@@ -70,7 +71,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         phone: phone.trim(),
         address: address.trim(),
         avatar: '',
-        password: newId,
+        password: dobDisplayPassword || newId,
         grades: {},
       });
     }
@@ -133,6 +134,9 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                 />
               </div>
+              <p className="text-[10px] text-emerald-700 font-semibold mt-1">
+                * Dùng làm Tài khoản &amp; Mật khẩu đăng nhập của HS
+              </p>
             </div>
 
             <div>

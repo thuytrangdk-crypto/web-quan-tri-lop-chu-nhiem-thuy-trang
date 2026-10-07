@@ -31,7 +31,7 @@ interface StudentsViewProps {
   onAddStudent: (newStudent: Partial<Student>) => void;
   onUpdateStudent: (student: Partial<Student>) => void;
   onDeleteStudent: (studentId: string) => void;
-  onBatchImportStudents: (newStudents: Student[]) => void;
+  onBatchImportStudents: (newStudents: Student[], mode?: 'append' | 'replace') => void;
   isTeacher: boolean;
   currentStudentId?: string | null;
   onShowToast?: (msg: string, type?: 'success' | 'error') => void;

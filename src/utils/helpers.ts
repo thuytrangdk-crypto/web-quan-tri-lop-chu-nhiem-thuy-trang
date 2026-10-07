@@ -244,10 +244,18 @@ export const downloadSampleExcelTemplate = () => {
       'Số điện thoại': '0901122334',
       'Địa chỉ': '78 Đống Đa, Hà Nội',
     },
+    {
+      'Họ và tên': 'Phạm Minh Đức',
+      'Ngày sinh': '05/02/2012',
+      'Giới tính': 'Nam',
+      'Họ tên phụ huynh': 'Phạm Thị Lan',
+      'Số điện thoại': '0934567890',
+      'Địa chỉ': '12 Tràng Thi, Hoàn Kiếm, Hà Nội',
+    },
   ];
 
   const ws = XLSX.utils.json_to_sheet(sampleData);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Mau_nhap_hoc_sinh');
-  XLSX.writeFile(wb, 'Mau_nhap_danh_sach_hoc_sinh.xlsx');
+  XLSX.utils.book_append_sheet(wb, ws, 'Danh_sach_hoc_sinh');
+  XLSX.writeFile(wb, 'Mau_nhap_danh_sach_hoc_sinh_chuan.xlsx');
 };

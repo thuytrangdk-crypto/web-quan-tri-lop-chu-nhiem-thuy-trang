@@ -326,12 +326,40 @@ export default function App() {
     showToast('Đã xóa học sinh khỏi danh sách');
   };
 
-  const handleBatchImportStudents = (newStudents: Student[]) => {
-    setState((prev) => ({
-      ...prev,
-      students: [...prev.students, ...newStudents],
-    }));
-    showToast(`Đã nhập thành công ${newStudents.length} học sinh`);
+  const handleBatchImportStudents = (
+    newStudents: Student[],
+    mode: 'append' | 'replace' = 'append'
+  ) => {
+    setState((prev) => {
+      let updatedStudents: Student[];
+      let updatedAttendance = prev.attendance;
+      let updatedDiscipline = prev.discipline;
+      let updatedNotes = prev.notes;
+
+      if (mode === 'replace') {
+        updatedStudents = newStudents;
+        const newIds = new Set(newStudents.map((s) => s.id));
+        updatedAttendance = prev.attendance.filter((a) => newIds.has(a.studentId));
+        updatedDiscipline = prev.discipline.filter((d) => newIds.has(d.studentId));
+        updatedNotes = prev.notes.filter((n) => newIds.has(n.studentId));
+      } else {
+        updatedStudents = [...prev.students, ...newStudents];
+      }
+
+      return {
+        ...prev,
+        students: updatedStudents,
+        attendance: updatedAttendance,
+        discipline: updatedDiscipline,
+        notes: updatedNotes,
+      };
+    });
+
+    showToast(
+      mode === 'replace'
+        ? `Đã thay thế toàn bộ danh sách: ${newStudents.length} học sinh`
+        : `Đã nhập thành công ${newStudents.length} học sinh vào lớp`
+    );
   };
 
   const handleUpdateAvatar = (studentId: string, base64: string) => {
