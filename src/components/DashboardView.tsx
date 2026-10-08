@@ -249,7 +249,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </span>
           </div>
 
-          <div className="p-4 flex-1 overflow-y-auto max-h-[380px] divide-y divide-gray-50">
+          <div className="p-4 flex-1 overflow-y-auto max-h-[380px] custom-scrollbar scroll-smooth divide-y divide-gray-50">
             {attentionStudents.length === 0 ? (
               <div className="text-center text-gray-400 py-12 flex flex-col items-center">
                 <Sparkles className="w-10 h-10 text-emerald-400 mb-2 opacity-80" />
@@ -417,7 +417,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </button>
           </div>
 
-          <div className="p-0 flex-1 overflow-y-auto max-h-[380px]">
+          <div className="p-0 flex-1 overflow-y-auto max-h-[380px] custom-scrollbar scroll-smooth">
             {activities.length === 0 ? (
               <div className="p-8 text-center text-gray-400 text-sm">
                 Chưa có hoạt động nào được ghi nhận.

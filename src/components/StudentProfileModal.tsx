@@ -21,6 +21,7 @@ import {
   MapPin,
   Clock,
   BookOpen,
+  History,
 } from 'lucide-react';
 import {
   AppState,
@@ -538,7 +539,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     </span>
                   </div>
 
-                  <div className="border border-gray-200 rounded-2xl overflow-hidden max-h-[400px] overflow-y-auto">
+                  <div className="border border-gray-200 rounded-2xl overflow-hidden max-h-[400px] overflow-y-auto custom-scrollbar scroll-smooth overscroll-contain shadow-2xs">
                     <table className="w-full text-left text-xs sm:text-sm">
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
@@ -804,7 +805,20 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     </div>
 
                     {/* History table */}
-                    <div className="border border-gray-200 rounded-2xl overflow-hidden max-h-[420px] overflow-y-auto">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                          <History className="w-3.5 h-3.5 text-blue-600" />
+                          Lịch sử sự việc thi đua &amp; kỷ luật ({filteredDiscipline.length})
+                        </span>
+                        {filteredDiscipline.length > 4 && (
+                          <span className="text-[11px] text-gray-400 font-medium">
+                            Cuộn xuống để xem thêm
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="border border-gray-200 rounded-2xl overflow-hidden max-h-[420px] overflow-y-auto custom-scrollbar scroll-smooth overscroll-contain shadow-2xs">
                       <table className="w-full text-left text-xs sm:text-sm">
                         <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                           <tr>
@@ -874,7 +888,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
               {/* TAB 5: SỔ TAY & LIÊN HỆ */}
               {activeTab === 'notes' && isTeacher && (
