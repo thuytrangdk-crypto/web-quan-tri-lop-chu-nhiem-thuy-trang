@@ -279,8 +279,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         student.name.charAt(0)
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors uppercase truncate">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors uppercase leading-snug break-words">
                         {student.name}
                       </p>
                       <div className="flex flex-wrap gap-1.5 mt-1">
@@ -343,8 +343,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         currentStudent.name.charAt(0)
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <h4 className="font-bold text-gray-900 text-base uppercase truncate">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-bold text-gray-900 text-base uppercase leading-snug break-words">
                         {currentStudent.name}
                       </h4>
                       <p className="text-xs text-gray-500 mt-0.5">
@@ -460,7 +460,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-bold text-gray-900 uppercase truncate">
+                          <p className="text-xs font-bold text-gray-900 uppercase leading-snug break-words">
                             {studentName}
                           </p>
                           <span className="text-[10px] text-gray-400 shrink-0">

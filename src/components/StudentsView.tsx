@@ -366,7 +366,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
 
                   {/* Name */}
                   <h4
-                    className="font-bold text-gray-900 text-xs sm:text-sm mb-1 group-hover:text-blue-600 transition-colors uppercase w-full truncate"
+                    className="font-bold text-gray-900 text-xs sm:text-sm mb-1 group-hover:text-blue-600 transition-colors uppercase w-full min-h-[2.5rem] flex items-center justify-center text-center break-words leading-snug px-1"
                     title={s.name}
                   >
                     {s.name}

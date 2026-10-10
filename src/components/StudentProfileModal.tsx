@@ -110,8 +110,10 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   React.useEffect(() => {
     if (student) {
       setTempGrades(student.grades || {});
+      setLocallyDeletedDisciplineIds([]);
+      setLocallyDeletedNoteIds([]);
     }
-  }, [student]);
+  }, [student?.id]);
 
   // Sync disRuleId when rules load or change
   React.useEffect(() => {
@@ -254,7 +256,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         </button>
 
         <div className="flex-1 min-w-0">
-          <h2 className="text-base sm:text-lg font-bold text-gray-900 truncate">
+          <h2 className="text-base sm:text-lg font-bold text-gray-900 leading-snug">
             Hồ sơ học sinh: <span className="uppercase text-blue-700">{student.name}</span>
           </h2>
           <p className="text-[11px] text-gray-400 font-mono">

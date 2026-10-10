@@ -293,7 +293,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
                       <div className="w-6 h-6 rounded-full bg-amber-400 text-amber-950 font-black flex items-center justify-center text-xs">
                         {idx + 1}
                       </div>
-                      <span className="text-xs font-bold text-gray-900 uppercase flex-1 truncate">
+                      <span className="text-xs font-bold text-gray-900 uppercase flex-1 break-words leading-tight">
                         {s.name}
                       </span>
                       <span className="text-xs font-black text-emerald-600">
@@ -384,7 +384,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
                       <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0">
                         {s.name.charAt(0)}
                       </div>
-                      <span className="text-xs sm:text-sm font-bold text-gray-900 uppercase flex-1 truncate">
+                      <span className="text-xs sm:text-sm font-bold text-gray-900 uppercase flex-1 break-words leading-tight">
                         {s.name}
                       </span>
                       <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md">
@@ -420,7 +420,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
                       <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0">
                         {s.name.charAt(0)}
                       </div>
-                      <span className="text-xs sm:text-sm font-bold text-gray-900 uppercase flex-1 truncate">
+                      <span className="text-xs sm:text-sm font-bold text-gray-900 uppercase flex-1 break-words leading-tight">
                         {s.name}
                       </span>
                       <span className="text-xs font-black text-red-600 bg-red-50 px-2.5 py-1 rounded-md">

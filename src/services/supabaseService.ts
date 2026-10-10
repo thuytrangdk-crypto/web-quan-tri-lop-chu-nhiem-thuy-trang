@@ -12,6 +12,10 @@ export interface SyncStatus {
 const RECORD_ID = 'main_state';
 const TABLE_NAME = 'tro_ly_chu_nhiem_data';
 
+// Unique session ID per browser tab/instance to prevent self-echo overwrite loops
+export const CLIENT_SESSION_ID =
+  'client_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now().toString(36);
+
 export const supabaseService = {
   // Test connection and table existence
   async checkConnection(): Promise<{ isConnected: boolean; isTableReady: boolean; error?: string }> {
@@ -71,10 +75,19 @@ export const supabaseService = {
   // Save state to Supabase
   async saveState(state: AppState): Promise<{ success: boolean; error?: string }> {
     try {
+      // Attach sync metadata to identify writer and avoid echo loops
+      const payloadWithMeta = {
+        ...state,
+        _syncMeta: {
+          clientId: CLIENT_SESSION_ID,
+          timestamp: Date.now(),
+        },
+      };
+
       const { error } = await supabase.from(TABLE_NAME).upsert(
         {
           id: RECORD_ID,
-          data: state,
+          data: payloadWithMeta,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'id' }
@@ -103,9 +116,16 @@ export const supabaseService = {
           filter: `id=eq.${RECORD_ID}`,
         },
         (payload: any) => {
-          if (payload?.new?.data) {
-            onRemoteUpdate(payload.new.data as AppState);
+          const remoteData = payload?.new?.data;
+          if (!remoteData) return;
+
+          // CRITICAL: Ignore updates broadcast by our own tab/session!
+          // This stops race conditions, infinite loops, and reverting newly edited data.
+          if (remoteData._syncMeta?.clientId === CLIENT_SESSION_ID) {
+            return;
           }
+
+          onRemoteUpdate(remoteData as AppState);
         }
       )
       .subscribe();

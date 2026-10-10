@@ -128,13 +128,26 @@ export default function App() {
       if (isTableReady) {
         // Load remote data
         const { state: remoteState } = await supabaseService.loadState();
-        if (remoteState && remoteState.students) {
+        if (remoteState && Array.isArray(remoteState.students)) {
+          // Merge positive rules if missing in remote data
+          const defaultPlusRules = DEFAULT_INITIAL_STATE.config.rules.filter(
+            (r) => r.type === 'plus'
+          );
+          const rawRules = remoteState.config?.rules || [];
+          const mergedRules = [...rawRules];
+          for (const pr of defaultPlusRules) {
+            if (!mergedRules.some((r) => r.id === pr.id || r.name.toLowerCase() === pr.name.toLowerCase())) {
+              mergedRules.push(pr);
+            }
+          }
+
           setState((prev) => ({
             ...prev,
             ...remoteState,
             config: {
               ...prev.config,
               ...remoteState.config,
+              rules: mergedRules.length > 0 ? mergedRules : prev.config.rules,
             },
           }));
           setSyncStatus((prev) => ({
@@ -145,10 +158,14 @@ export default function App() {
 
         // Subscribe to real-time changes from other tabs or devices
         unsubscribe = supabaseService.subscribe((updatedRemote) => {
-          if (updatedRemote && updatedRemote.students) {
+          if (updatedRemote && Array.isArray(updatedRemote.students)) {
             setState((prev) => ({
               ...prev,
               ...updatedRemote,
+              config: {
+                ...prev.config,
+                ...updatedRemote.config,
+              },
             }));
             setSyncStatus((prev) => ({
               ...prev,
@@ -165,26 +182,6 @@ export default function App() {
       if (unsubscribe) unsubscribe();
     };
   }, []);
-
-  // Debounced auto-save to Supabase when state changes
-  useEffect(() => {
-    if (!syncStatus.isTableReady) return;
-
-    const timer = setTimeout(async () => {
-      setSyncStatus((prev) => ({ ...prev, isSyncing: true }));
-      const res = await supabaseService.saveState(state);
-      setSyncStatus((prev) => ({
-        ...prev,
-        isSyncing: false,
-        lastSyncedAt: res.success
-          ? new Date().toLocaleTimeString('vi-VN')
-          : prev.lastSyncedAt,
-        errorMessage: res.error || null,
-      }));
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, [state, syncStatus.isTableReady]);
 
   const handleCheckSupabaseConnection = async () => {
     const res = await supabaseService.checkConnection();
@@ -220,6 +217,9 @@ export default function App() {
   const handlePullRemote = async () => {
     const res = await supabaseService.loadState();
     if (res.state && res.state.students) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(res.state));
+      } catch (e) {}
       setState(res.state);
       showToast('Đã tải và áp dụng dữ liệu mới từ Supabase Cloud!');
     } else {
@@ -235,13 +235,44 @@ export default function App() {
     }, 3200);
   };
 
+  // Unified state mutator that guarantees instant localStorage save and immediate Supabase synchronization
+  const updateAppState = (
+    updater: (prev: AppState) => AppState,
+    syncImmediately = true
+  ) => {
+    setState((prev) => {
+      const nextState = updater(prev);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+      } catch (e) {
+        console.error('Error saving state to localStorage', e);
+      }
+
+      if (syncImmediately) {
+        supabaseService.saveState(nextState).then((res) => {
+          if (res.success) {
+            setSyncStatus((s) => ({
+              ...s,
+              isConnected: true,
+              isTableReady: true,
+              lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
+              errorMessage: null,
+            }));
+          }
+        });
+      }
+
+      return nextState;
+    });
+  };
+
   const handleSaveClassSwitch = (data: {
     className: string;
     schoolYear: string;
     teacherName: string;
     availableClasses: string[];
   }) => {
-    setState((prev) => ({
+    updateAppState((prev) => ({
       ...prev,
       config: {
         ...prev.config,
@@ -255,7 +286,7 @@ export default function App() {
   };
 
   const handleUpdateSeatingChart = (newChart: Record<string, string>) => {
-    setState((prev) => ({
+    updateAppState((prev) => ({
       ...prev,
       seatingChart: newChart,
     }));
@@ -290,37 +321,6 @@ export default function App() {
     setSelectedStudentId(null);
     sessionStorage.removeItem(SESSION_AUTH_KEY);
     showToast('Đã đăng xuất khỏi hệ thống');
-  };
-
-  // Unified state mutator that guarantees instant localStorage save and immediate Supabase synchronization
-  const updateAppState = (
-    updater: (prev: AppState) => AppState,
-    syncImmediately = true
-  ) => {
-    setState((prev) => {
-      const nextState = updater(prev);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
-      } catch (e) {
-        console.error('Error saving state to localStorage', e);
-      }
-
-      if (syncImmediately) {
-        supabaseService.saveState(nextState).then((res) => {
-          if (res.success) {
-            setSyncStatus((s) => ({
-              ...s,
-              isConnected: true,
-              isTableReady: true,
-              lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
-              errorMessage: null,
-            }));
-          }
-        });
-      }
-
-      return nextState;
-    });
   };
 
   // Student CRUD
@@ -372,9 +372,7 @@ export default function App() {
     newStudents: Student[],
     mode: 'append' | 'replace' = 'replace'
   ) => {
-    let nextStateToSave: AppState | null = null;
-
-    setState((prev) => {
+    updateAppState((prev) => {
       let updatedStudents: Student[];
       let updatedAttendance = prev.attendance;
       let updatedDiscipline = prev.discipline;
@@ -400,7 +398,7 @@ export default function App() {
         updatedStudents = [...prev.students, ...toAdd];
       }
 
-      nextStateToSave = {
+      return {
         ...prev,
         students: updatedStudents,
         attendance: updatedAttendance,
@@ -408,25 +406,7 @@ export default function App() {
         notes: updatedNotes,
         seatingChart: updatedSeating,
       };
-
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextStateToSave));
-      } catch (e) {}
-
-      return nextStateToSave;
     });
-
-    // Immediate sync to Supabase Cloud so other devices & reloads get the clean 44 students immediately
-    if (nextStateToSave && syncStatus.isTableReady) {
-      supabaseService.saveState(nextStateToSave).then((res) => {
-        if (res.success) {
-          setSyncStatus((s) => ({
-            ...s,
-            lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
-          }));
-        }
-      });
-    }
 
     showToast(
       mode === 'replace'
@@ -436,8 +416,7 @@ export default function App() {
   };
 
   const handleRemoveSampleStudents = () => {
-    let nextStateToSave: AppState | null = null;
-    setState((prev) => {
+    updateAppState((prev) => {
       const updatedStudents = prev.students.filter((s) => !INITIAL_SAMPLE_IDS.has(s.id));
       const newIds = new Set(updatedStudents.map((s) => s.id));
       const updatedAttendance = prev.attendance.filter((a) => newIds.has(a.studentId));
@@ -447,7 +426,7 @@ export default function App() {
         Object.entries(prev.seatingChart || {}).filter(([_, id]) => newIds.has(id))
       );
 
-      nextStateToSave = {
+      return {
         ...prev,
         students: updatedStudents,
         attendance: updatedAttendance,
@@ -455,57 +434,20 @@ export default function App() {
         notes: updatedNotes,
         seatingChart: updatedSeating,
       };
-
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextStateToSave));
-      } catch (e) {}
-
-      return nextStateToSave;
     });
-
-    if (nextStateToSave && syncStatus.isTableReady) {
-      supabaseService.saveState(nextStateToSave).then((res) => {
-        if (res.success) {
-          setSyncStatus((s) => ({
-            ...s,
-            lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
-          }));
-        }
-      });
-    }
 
     showToast('Đã xóa sạch 8 học sinh mẫu ban đầu, hiện chỉ giữ lại học sinh của lớp!');
   };
 
   const handleClearAllStudents = () => {
-    let nextStateToSave: AppState | null = null;
-    setState((prev) => {
-      nextStateToSave = {
-        ...prev,
-        students: [],
-        attendance: [],
-        discipline: [],
-        notes: [],
-        seatingChart: {},
-      };
-
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextStateToSave));
-      } catch (e) {}
-
-      return nextStateToSave;
-    });
-
-    if (nextStateToSave && syncStatus.isTableReady) {
-      supabaseService.saveState(nextStateToSave).then((res) => {
-        if (res.success) {
-          setSyncStatus((s) => ({
-            ...s,
-            lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
-          }));
-        }
-      });
-    }
+    updateAppState((prev) => ({
+      ...prev,
+      students: [],
+      attendance: [],
+      discipline: [],
+      notes: [],
+      seatingChart: {},
+    }));
 
     showToast('Đã xóa toàn bộ học sinh của lớp!');
   };

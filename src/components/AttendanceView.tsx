@@ -158,8 +158,8 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                         student.name.charAt(0)
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors text-xs sm:text-sm uppercase truncate flex items-center gap-1.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors text-xs sm:text-sm uppercase flex items-center gap-1.5 flex-wrap">
                         <span>{student.name}</span>
                         {!isTeacher && isSelf && (
                           <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full font-bold">
