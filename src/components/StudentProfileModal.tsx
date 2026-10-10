@@ -83,6 +83,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const [isAddNoteModalOpen, setIsAddNoteModalOpen] = useState(false);
   const [confirmDeleteDisciplineId, setConfirmDeleteDisciplineId] = useState<string | null>(null);
   const [confirmDeleteNoteId, setConfirmDeleteNoteId] = useState<string | null>(null);
+  const [locallyDeletedDisciplineIds, setLocallyDeletedDisciplineIds] = useState<string[]>([]);
+  const [locallyDeletedNoteIds, setLocallyDeletedNoteIds] = useState<string[]>([]);
 
   // Direct discipline form state
   const [disDate, setDisDate] = useState(getTodayStr());
@@ -111,6 +113,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     }
   }, [student]);
 
+  // Sync disRuleId when rules load or change
+  React.useEffect(() => {
+    if ((!disRuleId || !state.config.rules.some((r) => r.id === disRuleId)) && state.config.rules.length > 0) {
+      setDisRuleId(state.config.rules[0].id);
+    }
+  }, [state.config.rules, disRuleId]);
+
   if (!student) return null;
 
   // Attendance stats
@@ -121,7 +130,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
   // Discipline stats
   const studentDiscipline = state.discipline.filter(
-    (d) => d.studentId === student.id
+    (d) => d.studentId === student.id && !locallyDeletedDisciplineIds.includes(d.id)
   );
   let overallPoints = 0;
   studentDiscipline.forEach((d) => {
@@ -191,8 +200,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
   const handleSubmitDiscipline = (e: React.FormEvent) => {
     e.preventDefault();
-    const rule = state.config.rules.find((r) => r.id === disRuleId);
-    if (!rule) return;
+    const rule =
+      state.config.rules.find((r) => r.id === disRuleId) ||
+      state.config.rules[0];
+    if (!rule) {
+      onShowToast('Chưa có quy tắc thi đua nào được cấu hình trong hệ thống', 'error');
+      return;
+    }
 
     onAddDiscipline({
       studentId: student.id,
@@ -205,7 +219,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     });
 
     setDisNote('');
-    onShowToast('Đã ghi nhận sự việc thi đua');
+    // Automatically switch to 'all' so the teacher immediately sees the newly saved incident in the table
+    setSelectedDisciplineMonth('all');
+    onShowToast(`Đã lưu ghi nhận: ${rule.name} (${rule.type === 'plus' ? `+${rule.points}` : `-${rule.points}`}đ)`);
   };
 
   const handleCreateNote = (e: React.FormEvent) => {
@@ -716,15 +732,19 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                             Quy tắc thi đua <span className="text-red-500">*</span>
                           </label>
                           <select
-                            value={disRuleId}
+                            value={disRuleId || state.config.rules[0]?.id || ''}
                             onChange={(e) => setDisRuleId(e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none bg-white cursor-pointer"
                           >
-                            {state.config.rules.map((r) => (
-                              <option key={r.id} value={r.id}>
-                                {r.name} ({r.type === 'plus' ? `+${r.points}` : `-${r.points}`}đ)
-                              </option>
-                            ))}
+                            {state.config.rules.length === 0 ? (
+                              <option value="">Chưa có quy tắc thi đua nào (vào Cài đặt để thêm)</option>
+                            ) : (
+                              state.config.rules.map((r) => (
+                                <option key={r.id} value={r.id}>
+                                  {r.name} ({r.type === 'plus' ? `+${r.points}` : `-${r.points}`}đ)
+                                </option>
+                              ))
+                            )}
                           </select>
                         </div>
 
@@ -907,14 +927,19 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     </button>
                   </div>
 
-                  <div className="space-y-3 max-h-[450px] overflow-y-auto">
-                    {state.notes.filter((n) => n.studentId === student.id).length === 0 ? (
+                  <div className="space-y-3 max-h-[450px] overflow-y-auto custom-scrollbar scroll-smooth">
+                    {state.notes.filter(
+                      (n) => n.studentId === student.id && !locallyDeletedNoteIds.includes(n.id)
+                    ).length === 0 ? (
                       <div className="p-8 text-center text-gray-400 text-sm">
                         Chưa có nhật ký trao đổi hay liên hệ phụ huynh nào.
                       </div>
                     ) : (
                       state.notes
-                        .filter((n) => n.studentId === student.id)
+                        .filter(
+                          (n) =>
+                            n.studentId === student.id && !locallyDeletedNoteIds.includes(n.id)
+                        )
                         .sort(
                           (a, b) =>
                             new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -1053,9 +1078,10 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         confirmText="Xóa sự việc"
         onConfirm={() => {
           if (confirmDeleteDisciplineId) {
-            onDeleteDiscipline(confirmDeleteDisciplineId);
+            const idToDelete = confirmDeleteDisciplineId;
+            setLocallyDeletedDisciplineIds((prev) => [...prev, idToDelete]);
+            onDeleteDiscipline(idToDelete);
             setConfirmDeleteDisciplineId(null);
-            onShowToast('Đã xóa ghi nhận');
           }
         }}
         onCancel={() => setConfirmDeleteDisciplineId(null)}
@@ -1069,9 +1095,10 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         confirmText="Xóa ghi chú"
         onConfirm={() => {
           if (confirmDeleteNoteId) {
-            onDeleteNote(confirmDeleteNoteId);
+            const idToDelete = confirmDeleteNoteId;
+            setLocallyDeletedNoteIds((prev) => [...prev, idToDelete]);
+            onDeleteNote(idToDelete);
             setConfirmDeleteNoteId(null);
-            onShowToast('Đã xóa ghi chú');
           }
         }}
         onCancel={() => setConfirmDeleteNoteId(null)}

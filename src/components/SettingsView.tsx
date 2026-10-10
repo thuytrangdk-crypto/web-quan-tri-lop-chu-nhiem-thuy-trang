@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Sliders,
   Scale,
@@ -16,11 +16,13 @@ import {
   Cloud,
   CheckCircle2,
   ExternalLink,
+  RotateCcw,
 } from 'lucide-react';
 import { AppConfig, AppState, ConductThresholds, DisciplineType, Rule } from '../types';
 import { ConfirmModal } from './ConfirmModal';
 import { generateId } from '../utils/helpers';
 import { SyncStatus } from '../services/supabaseService';
+import { DEFAULT_INITIAL_STATE } from '../defaultData';
 
 interface SettingsViewProps {
   state: AppState;
@@ -70,9 +72,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // Confirmation modals
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
+  const [isRestoreRulesConfirmOpen, setIsRestoreRulesConfirmOpen] = useState(false);
   const [ruleToDelete, setRuleToDelete] = useState<string | null>(null);
 
   const backupInputRef = useRef<HTMLInputElement>(null);
+
+  // Keep form states in sync if state.config updates
+  useEffect(() => {
+    setAppName(state.config.appName);
+    setClassName(state.config.className);
+    setSchoolYear(state.config.schoolYear);
+    setTeacherName(state.config.teacherName);
+    setTeacherPassword(state.config.teacherPassword);
+    setGoodScore(state.config.conductThresholds?.good ?? 0);
+    setFairScore(state.config.conductThresholds?.fair ?? -5);
+    setAvgScore(state.config.conductThresholds?.average ?? -10);
+  }, [state.config]);
 
   const handleSaveGeneral = (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,34 +129,43 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleSaveRule = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ruleName.trim()) return;
+    const cleanName = ruleName.trim();
+    if (!cleanName) return;
 
+    const pointsNum = Math.max(1, Number(rulePoints) || 1);
     let updatedRules = [...state.config.rules];
     if (ruleToEdit) {
       updatedRules = updatedRules.map((r) =>
         r.id === ruleToEdit.id
-          ? { ...r, name: ruleName.trim(), points: Number(rulePoints), type: ruleType }
+          ? { ...r, name: cleanName, points: pointsNum, type: ruleType }
           : r
       );
     } else {
       updatedRules.push({
         id: generateId(),
-        name: ruleName.trim(),
-        points: Number(rulePoints),
+        name: cleanName,
+        points: pointsNum,
         type: ruleType,
       });
     }
 
     onUpdateConfig({ rules: updatedRules });
     setIsRuleModalOpen(false);
-    onShowToast('Đã lưu quy tắc thi đua');
+    onShowToast(`Đã lưu quy tắc thi đua: ${cleanName}`);
   };
 
   const handleDeleteRule = (id: string) => {
     const updated = state.config.rules.filter((r) => r.id !== id);
     onUpdateConfig({ rules: updated });
     setRuleToDelete(null);
-    onShowToast('Đã xóa quy tắc');
+    onShowToast('Đã xóa quy tắc thi đua');
+  };
+
+  const handleRestoreDefaultRules = () => {
+    const defaultRules = DEFAULT_INITIAL_STATE.config.rules;
+    onUpdateConfig({ rules: defaultRules });
+    setIsRestoreRulesConfirmOpen(false);
+    onShowToast('Đã khôi phục bộ quy tắc thi đua chuẩn (11 quy tắc cộng/trừ điểm)');
   };
 
   const handleAddSubject = (e: React.FormEvent) => {
@@ -351,22 +375,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="space-y-8">
               {/* Rules List */}
               <div className="space-y-4">
-                <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-gray-100 pb-3">
                   <div>
                     <h3 className="text-base font-bold text-gray-900">
                       Bảng quy tắc điểm thi đua
                     </h3>
                     <p className="text-xs text-gray-400">
-                      Các lỗi trừ điểm nề nếp và khen thưởng cộng điểm
+                      Các lỗi trừ điểm nề nếp và khen thưởng cộng điểm ({state.config.rules.length} quy tắc)
                     </p>
                   </div>
-                  <button
-                    onClick={handleOpenAddRule}
-                    className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Thêm quy tắc</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsRestoreRulesConfirmOpen(true)}
+                      className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Nạp lại 11 quy tắc thi đua tiêu chuẩn của nhà trường"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-gray-500" />
+                      <span>Quy tắc chuẩn</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenAddRule}
+                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Thêm quy tắc</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="border border-gray-200 rounded-2xl overflow-hidden max-h-[350px] overflow-y-auto">
@@ -786,6 +822,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         confirmText="Xóa quy tắc"
         onConfirm={() => ruleToDelete && handleDeleteRule(ruleToDelete)}
         onCancel={() => setRuleToDelete(null)}
+      />
+
+      <ConfirmModal
+        isOpen={isRestoreRulesConfirmOpen}
+        title="Khôi phục quy tắc thi đua chuẩn"
+        message="Bạn có muốn đặt lại danh sách quy tắc thi đua về bộ quy tắc chuẩn của trường (gồm 11 lỗi trừ điểm và cộng điểm khen thưởng)?"
+        confirmText="Khôi phục quy tắc chuẩn"
+        onConfirm={handleRestoreDefaultRules}
+        onCancel={() => setIsRestoreRulesConfirmOpen(false)}
       />
     </div>
   );

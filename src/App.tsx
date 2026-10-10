@@ -292,10 +292,41 @@ export default function App() {
     showToast('Đã đăng xuất khỏi hệ thống');
   };
 
+  // Unified state mutator that guarantees instant localStorage save and immediate Supabase synchronization
+  const updateAppState = (
+    updater: (prev: AppState) => AppState,
+    syncImmediately = true
+  ) => {
+    setState((prev) => {
+      const nextState = updater(prev);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+      } catch (e) {
+        console.error('Error saving state to localStorage', e);
+      }
+
+      if (syncImmediately) {
+        supabaseService.saveState(nextState).then((res) => {
+          if (res.success) {
+            setSyncStatus((s) => ({
+              ...s,
+              isConnected: true,
+              isTableReady: true,
+              lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
+              errorMessage: null,
+            }));
+          }
+        });
+      }
+
+      return nextState;
+    });
+  };
+
   // Student CRUD
   const handleAddStudent = (newStudentData: Partial<Student>) => {
     const newStudent = newStudentData as Student;
-    setState((prev) => ({
+    updateAppState((prev) => ({
       ...prev,
       students: [...prev.students, newStudent],
     }));
@@ -303,7 +334,7 @@ export default function App() {
   };
 
   const handleUpdateStudent = (studentData: Partial<Student>) => {
-    setState((prev) => ({
+    updateAppState((prev) => ({
       ...prev,
       students: prev.students.map((s) =>
         s.id === studentData.id ? ({ ...s, ...studentData } as Student) : s
@@ -313,7 +344,7 @@ export default function App() {
   };
 
   const handleDeleteStudent = (studentId: string) => {
-    setState((prev) => ({
+    updateAppState((prev) => ({
       ...prev,
       students: prev.students.filter((s) => s.id !== studentId),
       attendance: prev.attendance.filter((a) => a.studentId !== studentId),
@@ -480,7 +511,7 @@ export default function App() {
   };
 
   const handleUpdateAvatar = (studentId: string, base64: string) => {
-    setState((prev) => ({
+    updateAppState((prev) => ({
       ...prev,
       students: prev.students.map((s) =>
         s.id === studentId ? { ...s, avatar: base64 } : s
@@ -489,7 +520,7 @@ export default function App() {
   };
 
   const handleSaveGrades = (studentId: string, grades: Record<string, number>) => {
-    setState((prev) => ({
+    updateAppState((prev) => ({
       ...prev,
       students: prev.students.map((s) =>
         s.id === studentId ? { ...s, grades } : s
@@ -498,7 +529,7 @@ export default function App() {
   };
 
   const handleChangePassword = (studentId: string, newPass: string) => {
-    setState((prev) => ({
+    updateAppState((prev) => ({
       ...prev,
       students: prev.students.map((s) =>
         s.id === studentId ? { ...s, password: newPass } : s
@@ -512,7 +543,7 @@ export default function App() {
     date: string,
     status: AttendanceStatus
   ) => {
-    setState((prev) => {
+    updateAppState((prev) => {
       const idx = prev.attendance.findIndex(
         (a) => a.studentId === studentId && a.date === date
       );
@@ -532,7 +563,7 @@ export default function App() {
   };
 
   const handleMarkAllPresent = (date: string) => {
-    setState((prev) => {
+    updateAppState((prev) => {
       const nextAtt = [...prev.attendance];
       prev.students.forEach((s) => {
         const idx = nextAtt.findIndex(
@@ -580,7 +611,7 @@ export default function App() {
       syncedStatus = 'v';
     }
 
-    setState((prev) => {
+    updateAppState((prev) => {
       let nextAtt = prev.attendance;
       if (syncedStatus) {
         const idx = nextAtt.findIndex(
@@ -616,10 +647,31 @@ export default function App() {
   };
 
   const handleDeleteDiscipline = (recordId: string) => {
-    setState((prev) => ({
-      ...prev,
-      discipline: prev.discipline.filter((d) => d.id !== recordId),
-    }));
+    updateAppState((prev) => {
+      const recordToDelete = prev.discipline.find((d) => d.id === recordId);
+      const nextDiscipline = prev.discipline.filter((d) => d.id !== recordId);
+
+      let nextAtt = prev.attendance;
+      if (recordToDelete) {
+        // If this record synced attendance, check if there are other violations on that day
+        const remainingSyncViolations = nextDiscipline.filter(
+          (d) => d.studentId === recordToDelete.studentId && d.date === recordToDelete.date
+        );
+        if (remainingSyncViolations.length === 0) {
+          // Remove or reset the synced attendance for this student on this date
+          nextAtt = nextAtt.filter(
+            (a) => !(a.studentId === recordToDelete.studentId && a.date === recordToDelete.date)
+          );
+        }
+      }
+
+      return {
+        ...prev,
+        discipline: nextDiscipline,
+        attendance: nextAtt,
+      };
+    });
+    showToast('Đã xóa ghi nhận sự việc thi đua thành công');
   };
 
   // Notes Handlers
@@ -628,17 +680,19 @@ export default function App() {
       ...record,
       id: generateId(),
     };
-    setState((prev) => ({
+    updateAppState((prev) => ({
       ...prev,
       notes: [...prev.notes, newNote],
     }));
+    showToast('Đã thêm ghi chú liên lạc');
   };
 
   const handleDeleteNote = (noteId: string) => {
-    setState((prev) => ({
+    updateAppState((prev) => ({
       ...prev,
       notes: prev.notes.filter((n) => n.id !== noteId),
     }));
+    showToast('Đã xóa ghi chú');
   };
 
   // Board Notices Handlers
@@ -647,7 +701,7 @@ export default function App() {
       ...notice,
       id: generateId(),
     };
-    setState((prev) => ({
+    updateAppState((prev) => ({
       ...prev,
       boardNotices: [...prev.boardNotices, newNotice],
     }));
@@ -655,7 +709,7 @@ export default function App() {
   };
 
   const handleDeleteNotice = (noticeId: string) => {
-    setState((prev) => ({
+    updateAppState((prev) => ({
       ...prev,
       boardNotices: prev.boardNotices.filter((n) => n.id !== noticeId),
     }));
@@ -664,7 +718,7 @@ export default function App() {
 
   // Config & Reset Handlers
   const handleUpdateConfig = (newConfig: Partial<AppState['config']>) => {
-    setState((prev) => ({
+    updateAppState((prev) => ({
       ...prev,
       config: {
         ...prev.config,
@@ -674,22 +728,27 @@ export default function App() {
   };
 
   const handleResetData = () => {
-    setState(DEFAULT_INITIAL_STATE);
+    updateAppState(() => DEFAULT_INITIAL_STATE);
+    showToast('Đã khôi phục dữ liệu mẫu thành công');
   };
 
   const handleClearAllData = () => {
-    setState({
+    updateAppState((prev) => ({
+      ...prev,
       config: DEFAULT_INITIAL_STATE.config,
       students: [],
       attendance: [],
       discipline: [],
       notes: [],
       boardNotices: [],
-    });
+      seatingChart: {},
+    }));
+    showToast('Đã xóa toàn bộ dữ liệu');
   };
 
   const handleImportBackup = (backupState: AppState) => {
-    setState(backupState);
+    updateAppState(() => backupState);
+    showToast('Đã khôi phục từ bản sao lưu');
   };
 
   // Page titles
