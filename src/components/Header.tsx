@@ -139,7 +139,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={onGoHome}
           className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 text-xs font-bold border border-slate-200 transition-colors cursor-pointer"
-          title="Về trang tổng quan"
+          title={isTeacher ? "Về trang tổng quan" : "Về bảng tin & sơ đồ lớp"}
         >
           <Home className="w-3.5 h-3.5 text-blue-600" />
           <span>Trang chủ</span>

@@ -11,6 +11,8 @@ import {
   Sparkles,
   Info,
   Maximize2,
+  Plus,
+  Minus,
 } from 'lucide-react';
 import { AppState, SeatingLayout, Student } from '../types';
 
@@ -20,18 +22,51 @@ interface SeatingChartViewProps {
   onUpdateSeatingLayout?: (layout: SeatingLayout) => void;
   onSelectStudent: (studentId: string) => void;
   isTeacher: boolean;
+  currentStudentId?: string | null;
   onShowToast: (msg: string, type?: 'success' | 'error') => void;
 }
 
 export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
   state,
   onUpdateSeatingChart,
+  onUpdateSeatingLayout,
   onSelectStudent,
   isTeacher,
+  currentStudentId,
   onShowToast,
 }) => {
-  const layout = state.seatingLayout || { groups: 4, rows: 4, seatsPerTable: 2 };
+  const layout: SeatingLayout = {
+    groups: state.seatingLayout?.groups || 4,
+    rows:
+      state.seatingLayout?.rows && state.seatingLayout.rows >= 8
+        ? state.seatingLayout.rows
+        : 8,
+    seatsPerTable: state.seatingLayout?.seatsPerTable || 2,
+  };
   const seatingMap = state.seatingChart || {};
+
+  // Handlers to add/remove tables per row/dãy
+  const handleAddRow = () => {
+    if (layout.rows >= 12) {
+      onShowToast('Số bàn mỗi dãy tối đa là 12 bàn', 'error');
+      return;
+    }
+    const newRows = layout.rows + 1;
+    if (onUpdateSeatingLayout) {
+      onUpdateSeatingLayout({ ...layout, rows: newRows });
+    }
+  };
+
+  const handleRemoveRow = () => {
+    if (layout.rows <= 3) {
+      onShowToast('Số bàn mỗi dãy tối thiểu là 3 bàn', 'error');
+      return;
+    }
+    const newRows = layout.rows - 1;
+    if (onUpdateSeatingLayout) {
+      onUpdateSeatingLayout({ ...layout, rows: newRows });
+    }
+  };
 
   // Selecting a seat for assignment or swap
   const [selectedSeatKey, setSelectedSeatKey] = useState<string | null>(null);
@@ -95,7 +130,14 @@ export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
   const handleSeatClick = (seatKey: string) => {
     if (!isTeacher) {
       const studentId = seatingMap[seatKey];
-      if (studentId) onSelectStudent(studentId);
+      if (studentId) {
+        if (studentId === currentStudentId) {
+          onSelectStudent(studentId);
+        } else {
+          const seatedStudent = state.students.find((s) => s.id === studentId);
+          onShowToast(`Chỗ ngồi của bạn ${seatedStudent ? seatedStudent.name : ''}. (Bảo mật: Học sinh chỉ xem chi tiết hồ sơ cá nhân của chính mình)`);
+        }
+      }
       return;
     }
 
@@ -173,6 +215,32 @@ export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
 
         {isTeacher && (
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            {/* Table Rows Control */}
+            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 text-xs">
+              <span className="font-bold text-slate-500 mr-1">Quy mô:</span>
+              <button
+                type="button"
+                onClick={handleRemoveRow}
+                disabled={layout.rows <= 3}
+                className="w-6 h-6 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold cursor-pointer transition-colors shadow-2xs"
+                title="Bớt 1 bàn mỗi dãy"
+              >
+                <Minus className="w-3 h-3" />
+              </button>
+              <span className="font-black text-blue-700 px-1.5 min-w-[50px] text-center">
+                {layout.rows} bàn/dãy
+              </span>
+              <button
+                type="button"
+                onClick={handleAddRow}
+                disabled={layout.rows >= 10}
+                className="w-6 h-6 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold cursor-pointer transition-colors shadow-2xs"
+                title="Thêm 1 bàn mỗi dãy"
+              >
+                <Plus className="w-3 h-3" />
+              </button>
+            </div>
+
             {/* Auto Arrange Random */}
             <button
               onClick={() => handleAutoArrange('random')}
@@ -284,13 +352,18 @@ export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
                               );
                               const isSelected = selectedSeatKey === seatKey;
                               const isSwapSource = swapSourceSeatKey === seatKey;
+                              const isMySeat = !isTeacher && student && student.id === currentStudentId;
 
                               return (
                                 <div
                                   key={seatKey}
                                   onClick={() => handleSeatClick(seatKey)}
-                                  className={`rounded-xl p-2 border transition-all cursor-pointer relative min-h-[68px] flex flex-col justify-between ${
-                                    isSwapSource
+                                  className={`rounded-xl p-2 border transition-all relative min-h-[76px] flex flex-col justify-between ${
+                                    isTeacher || isMySeat ? 'cursor-pointer' : 'cursor-default'
+                                  } ${
+                                    isMySeat
+                                      ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-400 shadow-xs'
+                                      : isSwapSource
                                       ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-300 animate-pulse'
                                       : isSelected
                                       ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-300'
@@ -303,30 +376,34 @@ export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
                                 >
                                   {student ? (
                                     <>
-                                      <div className="flex items-center gap-1.5">
+                                      <div className="flex items-start gap-1.5 min-w-0">
                                         <div
-                                          className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black text-white shrink-0 ${
-                                            student.gender === 'Nam'
+                                          className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black text-white shrink-0 mt-0.5 ${
+                                            isMySeat
+                                              ? 'bg-emerald-600'
+                                              : student.gender === 'Nam'
                                               ? 'bg-blue-600'
                                               : 'bg-pink-600'
                                           }`}
                                         >
                                           {student.name.charAt(0)}
                                         </div>
-                                        <span
-                                          className="text-[11px] font-bold text-gray-900 uppercase truncate"
-                                          title={student.name}
-                                        >
-                                          {student.name.split(' ').pop()}
-                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex items-center gap-1">
+                                            <p
+                                              className="text-[11px] font-bold text-gray-900 uppercase leading-snug break-words flex-1"
+                                              title={student.name}
+                                            >
+                                              {student.name}
+                                            </p>
+                                            {isMySeat && (
+                                              <span className="text-[9px] font-black bg-emerald-600 text-white px-1 py-0.2 rounded shrink-0">
+                                                BẠN
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
                                       </div>
-
-                                      <p
-                                        className="text-[9px] text-gray-500 truncate mt-1"
-                                        title={student.name}
-                                      >
-                                        {student.name}
-                                      </p>
 
                                       {/* Teacher seat controls */}
                                       {isTeacher && (
@@ -433,8 +510,8 @@ export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
                       >
                         {s.name.charAt(0)}
                       </div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-900 uppercase">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-gray-900 uppercase break-words leading-snug">
                           {s.name}
                         </p>
                         <span className="text-[10px] text-gray-400 font-mono">

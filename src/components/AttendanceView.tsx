@@ -8,6 +8,7 @@ import {
   X as XIcon,
   Clock,
   UserX,
+  Trash2,
 } from 'lucide-react';
 import { AppState, AttendanceStatus } from '../types';
 import { getTodayStr } from '../utils/helpers';
@@ -16,6 +17,7 @@ interface AttendanceViewProps {
   state: AppState;
   onUpdateAttendanceStatus: (studentId: string, date: string, status: AttendanceStatus) => void;
   onMarkAllPresent: (date: string) => void;
+  onDeleteAttendanceByDate?: (studentId: string, date: string) => void;
   onSaveNotice: () => void;
   onSelectStudent: (studentId: string) => void;
   isTeacher?: boolean;
@@ -27,6 +29,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
   state,
   onUpdateAttendanceStatus,
   onMarkAllPresent,
+  onDeleteAttendanceByDate,
   onSaveNotice,
   onSelectStudent,
   isTeacher = true,
@@ -159,7 +162,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors text-xs sm:text-sm uppercase flex items-center gap-1.5 flex-wrap">
+                      <p className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors text-xs sm:text-sm uppercase flex items-center gap-1.5 flex-wrap break-words leading-snug">
                         <span>{student.name}</span>
                         {!isTeacher && isSelf && (
                           <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full font-bold">
@@ -251,6 +254,21 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({
                       <span>Muộn</span>
                     </button>
                   </div>
+
+                  {/* Reset / Xóa điểm danh ngày này nếu đã ghi nhận */}
+                  {isTeacher && currentRecord && (
+                    <div className="mt-2 pt-1.5 border-t border-gray-100 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => onDeleteAttendanceByDate?.(student.id, selectedDate)}
+                        className="text-[10px] text-gray-400 hover:text-red-600 font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Xóa bản ghi điểm danh này (chuyển về Chưa điểm danh)"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Xóa điểm danh</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}

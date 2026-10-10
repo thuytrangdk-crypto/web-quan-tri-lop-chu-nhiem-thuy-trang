@@ -51,6 +51,7 @@ interface StudentProfileModalProps {
   onSaveGrades: (studentId: string, grades: Record<string, number>) => void;
   onAddDiscipline: (record: Omit<DisciplineRecord, 'id'>) => void;
   onDeleteDiscipline: (recordId: string) => void;
+  onDeleteAttendance?: (attendanceId: string) => void;
   onAddNote: (record: Omit<NoteRecord, 'id'>) => void;
   onDeleteNote: (noteId: string) => void;
   onChangePassword: (studentId: string, newPass: string) => void;
@@ -68,6 +69,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   onSaveGrades,
   onAddDiscipline,
   onDeleteDiscipline,
+  onDeleteAttendance,
   onAddNote,
   onDeleteNote,
   onChangePassword,
@@ -83,6 +85,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const [isAddNoteModalOpen, setIsAddNoteModalOpen] = useState(false);
   const [confirmDeleteDisciplineId, setConfirmDeleteDisciplineId] = useState<string | null>(null);
   const [confirmDeleteNoteId, setConfirmDeleteNoteId] = useState<string | null>(null);
+  const [confirmDeleteAttendanceId, setConfirmDeleteAttendanceId] = useState<string | null>(null);
   const [locallyDeletedDisciplineIds, setLocallyDeletedDisciplineIds] = useState<string[]>([]);
   const [locallyDeletedNoteIds, setLocallyDeletedNoteIds] = useState<string[]>([]);
 
@@ -557,20 +560,25 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     </span>
                   </div>
 
-                  <div className="border border-gray-200 rounded-2xl overflow-hidden max-h-[400px] overflow-y-auto custom-scrollbar scroll-smooth overscroll-contain shadow-2xs">
+                    <div className="border border-gray-200 rounded-2xl overflow-hidden max-h-[400px] overflow-y-auto custom-scrollbar scroll-smooth overscroll-contain shadow-2xs">
                     <table className="w-full text-left text-xs sm:text-sm">
-                      <thead className="bg-gray-50 border-b border-gray-200">
+                      <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                         <tr>
                           <th className="px-4 py-3 font-bold text-gray-600">Ngày</th>
                           <th className="px-4 py-3 font-bold text-gray-600 text-center">
                             Trạng thái
                           </th>
+                          {isTeacher && (
+                            <th className="px-4 py-3 font-bold text-gray-600 text-center w-20">
+                              Thao tác
+                            </th>
+                          )}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 bg-white">
                         {studentAtt.length === 0 ? (
                           <tr>
-                            <td colSpan={2} className="px-4 py-8 text-center text-gray-400">
+                            <td colSpan={isTeacher ? 3 : 2} className="px-4 py-8 text-center text-gray-400">
                               Chưa có dữ liệu điểm danh cho học sinh này.
                             </td>
                           </tr>
@@ -612,6 +620,18 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                                     {formatDisplayDate(att.date)}
                                   </td>
                                   <td className="px-4 py-3 text-center">{statusTag}</td>
+                                  {isTeacher && (
+                                    <td className="px-4 py-3 text-center">
+                                      <button
+                                        type="button"
+                                        onClick={() => setConfirmDeleteAttendanceId(att.id)}
+                                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                                        title="Xóa bản ghi điểm danh này"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </td>
+                                  )}
                                 </tr>
                               );
                             })
@@ -1104,6 +1124,23 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           }
         }}
         onCancel={() => setConfirmDeleteNoteId(null)}
+      />
+
+      {/* Delete Attendance Confirm */}
+      <ConfirmModal
+        isOpen={!!confirmDeleteAttendanceId}
+        title="Xóa bản ghi điểm danh"
+        message="Bạn có chắc chắn muốn xóa bản ghi điểm danh ngày này? Sau khi xóa, ngày này sẽ được chuyển về trạng thái Chưa điểm danh."
+        confirmText="Xóa bản ghi"
+        isDanger={true}
+        onConfirm={() => {
+          if (confirmDeleteAttendanceId) {
+            const idToDelete = confirmDeleteAttendanceId;
+            onDeleteAttendance?.(idToDelete);
+            setConfirmDeleteAttendanceId(null);
+          }
+        }}
+        onCancel={() => setConfirmDeleteAttendanceId(null)}
       />
     </div>
   );

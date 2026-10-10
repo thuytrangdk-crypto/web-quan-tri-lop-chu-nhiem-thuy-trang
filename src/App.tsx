@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   AppState,
   AttendanceStatus,
   BoardNotice,
   DisciplineRecord,
   NoteRecord,
+  SeatingLayout,
   Student,
   UserRole,
 } from './types';
@@ -22,7 +23,7 @@ import { StudentProfileModal } from './components/StudentProfileModal';
 import { ClassSwitchModal } from './components/ClassSwitchModal';
 import { SupabaseModal } from './components/SupabaseModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
-import { supabaseService, SyncStatus } from './services/supabaseService';
+import { supabaseService, SyncStatus, CLIENT_SESSION_ID } from './services/supabaseService';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 const STORAGE_KEY = 'so_chu_nhiem_8a3_data';
@@ -48,6 +49,14 @@ export default function App() {
               ...DEFAULT_INITIAL_STATE.config,
               ...parsed.config,
             },
+            seatingLayout: {
+              ...DEFAULT_INITIAL_STATE.seatingLayout,
+              ...(parsed.seatingLayout || {}),
+              rows:
+                parsed.seatingLayout?.rows && parsed.seatingLayout.rows >= 8
+                  ? parsed.seatingLayout.rows
+                  : 8,
+            },
           };
         }
       }
@@ -56,6 +65,9 @@ export default function App() {
     }
     return DEFAULT_INITIAL_STATE;
   });
+
+  const latestStateRef = useRef<AppState>(state);
+  latestStateRef.current = state;
 
   const [authRole, setAuthRole] = useState<UserRole | null>(() => {
     try {
@@ -79,7 +91,16 @@ export default function App() {
     return null;
   });
 
-  const [currentView, setCurrentView] = useState<string>('dashboard');
+  const [currentView, setCurrentView] = useState<string>(() => {
+    try {
+      const session = sessionStorage.getItem(SESSION_AUTH_KEY);
+      if (session) {
+        const parsed = JSON.parse(session);
+        if (parsed.role === 'student') return 'board';
+      }
+    } catch (e) {}
+    return 'dashboard';
+  });
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isClassSwitchOpen, setIsClassSwitchOpen] = useState(false);
@@ -129,48 +150,68 @@ export default function App() {
         // Load remote data
         const { state: remoteState } = await supabaseService.loadState();
         if (remoteState && Array.isArray(remoteState.students)) {
-          // Merge positive rules if missing in remote data
-          const defaultPlusRules = DEFAULT_INITIAL_STATE.config.rules.filter(
-            (r) => r.type === 'plus'
-          );
-          const rawRules = remoteState.config?.rules || [];
-          const mergedRules = [...rawRules];
-          for (const pr of defaultPlusRules) {
-            if (!mergedRules.some((r) => r.id === pr.id || r.name.toLowerCase() === pr.name.toLowerCase())) {
-              mergedRules.push(pr);
-            }
-          }
+          const localTs = latestStateRef.current._syncMeta?.timestamp || 0;
+          const remoteTs = remoteState._syncMeta?.timestamp || 0;
 
-          setState((prev) => ({
-            ...prev,
-            ...remoteState,
-            config: {
-              ...prev.config,
-              ...remoteState.config,
-              rules: mergedRules.length > 0 ? mergedRules : prev.config.rules,
-            },
-          }));
-          setSyncStatus((prev) => ({
-            ...prev,
-            lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
-          }));
+          // If local state has newer edits made before remote arrived, upload local state!
+          if (localTs > remoteTs) {
+            await supabaseService.saveState(latestStateRef.current);
+            setSyncStatus((prev) => ({
+              ...prev,
+              lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
+            }));
+          } else {
+            // Apply remote state
+            setState((prev) => ({
+              ...prev,
+              ...remoteState,
+              config: {
+                ...prev.config,
+                ...remoteState.config,
+              },
+            }));
+            latestStateRef.current = {
+              ...latestStateRef.current,
+              ...remoteState,
+              config: {
+                ...latestStateRef.current.config,
+                ...remoteState.config,
+              },
+            };
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(remoteState));
+            } catch (e) {}
+            setSyncStatus((prev) => ({
+              ...prev,
+              lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
+            }));
+          }
         }
 
         // Subscribe to real-time changes from other tabs or devices
         unsubscribe = supabaseService.subscribe((updatedRemote) => {
           if (updatedRemote && Array.isArray(updatedRemote.students)) {
-            setState((prev) => ({
-              ...prev,
-              ...updatedRemote,
-              config: {
-                ...prev.config,
-                ...updatedRemote.config,
-              },
-            }));
-            setSyncStatus((prev) => ({
-              ...prev,
-              lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
-            }));
+            const remoteTs = updatedRemote._syncMeta?.timestamp || 0;
+            const currentTs = latestStateRef.current._syncMeta?.timestamp || 0;
+
+            if (remoteTs > currentTs) {
+              setState((prev) => ({
+                ...prev,
+                ...updatedRemote,
+                config: {
+                  ...prev.config,
+                  ...updatedRemote.config,
+                },
+              }));
+              latestStateRef.current = updatedRemote;
+              try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedRemote));
+              } catch (e) {}
+              setSyncStatus((prev) => ({
+                ...prev,
+                lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
+              }));
+            }
           }
         });
       }
@@ -241,7 +282,16 @@ export default function App() {
     syncImmediately = true
   ) => {
     setState((prev) => {
-      const nextState = updater(prev);
+      const updated = updater(prev);
+      const nextState: AppState = {
+        ...updated,
+        _syncMeta: {
+          clientId: CLIENT_SESSION_ID,
+          timestamp: Date.now(),
+        },
+      };
+      latestStateRef.current = nextState;
+
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
       } catch (e) {
@@ -258,6 +308,8 @@ export default function App() {
               lastSyncedAt: new Date().toLocaleTimeString('vi-VN'),
               errorMessage: null,
             }));
+          } else {
+            console.warn('Supabase save state error:', res.error);
           }
         });
       }
@@ -292,6 +344,14 @@ export default function App() {
     }));
   };
 
+  const handleUpdateSeatingLayout = (newLayout: SeatingLayout) => {
+    updateAppState((prev) => ({
+      ...prev,
+      seatingLayout: newLayout,
+    }));
+    showToast(`Đã cập nhật sơ đồ lớp: ${newLayout.rows} bàn mỗi dãy`);
+  };
+
   // Auth Handlers
   const handleLoginTeacher = () => {
     setAuthRole('teacher');
@@ -306,7 +366,8 @@ export default function App() {
   const handleLoginStudent = (studentId: string) => {
     setAuthRole('student');
     setAuthStudentId(studentId);
-    setSelectedStudentId(studentId);
+    setSelectedStudentId(null);
+    setCurrentView('board');
     sessionStorage.setItem(
       SESSION_AUTH_KEY,
       JSON.stringify({ role: 'student', id: studentId })
@@ -314,6 +375,19 @@ export default function App() {
     const s = state.students.find((x) => x.id === studentId);
     showToast(`Xin chào học sinh ${s ? s.name : ''}`);
   };
+
+  // Guard views: restrict student role to Board & Seating Chart and their own Profile
+  useEffect(() => {
+    if (authRole === 'student') {
+      if (currentView === 'profile') {
+        if (!selectedStudentId && authStudentId) {
+          setSelectedStudentId(authStudentId);
+        }
+      } else if (currentView !== 'board') {
+        setCurrentView('board');
+      }
+    }
+  }, [authRole, currentView, selectedStudentId, authStudentId]);
 
   const handleLogout = () => {
     setAuthRole(null);
@@ -527,6 +601,24 @@ export default function App() {
     showToast('Đã đánh dấu tất cả có mặt cho ngày đã chọn');
   };
 
+  const handleDeleteAttendance = (attendanceId: string) => {
+    updateAppState((prev) => ({
+      ...prev,
+      attendance: prev.attendance.filter((a) => a.id !== attendanceId),
+    }));
+    showToast('Đã xóa bản ghi điểm danh');
+  };
+
+  const handleResetStudentAttendance = (studentId: string, date: string) => {
+    updateAppState((prev) => ({
+      ...prev,
+      attendance: prev.attendance.filter(
+        (a) => !(a.studentId === studentId && a.date === date)
+      ),
+    }));
+    showToast('Đã xóa điểm danh ngày đã chọn');
+  };
+
   // Discipline Handlers (with auto sync attendance!)
   const handleAddDiscipline = (record: Omit<DisciplineRecord, 'id'>) => {
     const newDiscipline: DisciplineRecord = {
@@ -647,7 +739,17 @@ export default function App() {
       ...prev,
       boardNotices: [...prev.boardNotices, newNotice],
     }));
-    showToast('Đã đăng thông báo mới lên bảng tin');
+    showToast('Đã đăng thông tin mới lên bảng tin');
+  };
+
+  const handleUpdateNotice = (updatedNotice: BoardNotice) => {
+    updateAppState((prev) => ({
+      ...prev,
+      boardNotices: prev.boardNotices.map((n) =>
+        n.id === updatedNotice.id ? updatedNotice : n
+      ),
+    }));
+    showToast('Đã cập nhật thay đổi thông tin thành công');
   };
 
   const handleDeleteNotice = (noticeId: string) => {
@@ -655,7 +757,7 @@ export default function App() {
       ...prev,
       boardNotices: prev.boardNotices.filter((n) => n.id !== noticeId),
     }));
-    showToast('Đã xóa thông báo');
+    showToast('Đã xóa thông tin thành công');
   };
 
   // Config & Reset Handlers
@@ -696,10 +798,11 @@ export default function App() {
   // Page titles
   const pageTitles: Record<string, string> = {
     dashboard: 'Tổng quan Lớp học',
-    board: 'Bảng tin & Vinh danh Thi đua',
+    board: 'Bảng tin & Sơ đồ lớp',
     students: 'Danh sách & Quản lý Học sinh',
     attendance: 'Điểm danh Chuyên cần',
     settings: 'Cài đặt Hệ thống',
+    profile: 'Hồ sơ cá nhân học sinh',
   };
 
   return (
@@ -750,7 +853,7 @@ export default function App() {
               syncStatus={syncStatus}
               onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
               onOpenClassSwitch={() => setIsClassSwitchOpen(true)}
-              onGoHome={() => setCurrentView('dashboard')}
+              onGoHome={() => setCurrentView(authRole === 'teacher' ? 'dashboard' : 'board')}
               onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
               onOpenChangePassword={() => setIsTeacherPasswordModalOpen(true)}
               onOpenMyProfile={() => {
@@ -760,7 +863,7 @@ export default function App() {
             />
 
             <main className="flex-1 overflow-y-auto p-4 lg:p-8 bg-gray-50/60 custom-scrollbar">
-              {currentView === 'dashboard' && (
+              {authRole === 'teacher' && currentView === 'dashboard' && (
                 <DashboardView
                   state={state}
                   isTeacher={authRole === 'teacher'}
@@ -777,7 +880,7 @@ export default function App() {
                 />
               )}
 
-              {currentView === 'students' && (
+              {authRole === 'teacher' && currentView === 'students' && (
                 <StudentsView
                   state={state}
                   onSelectStudent={(id) => {
@@ -799,11 +902,12 @@ export default function App() {
                 />
               )}
 
-              {currentView === 'attendance' && (
+              {authRole === 'teacher' && currentView === 'attendance' && (
                 <AttendanceView
                   state={state}
                   onUpdateAttendanceStatus={handleUpdateAttendanceStatus}
                   onMarkAllPresent={handleMarkAllPresent}
+                  onDeleteAttendanceByDate={handleResetStudentAttendance}
                   onSaveNotice={() => showToast('Đã lưu dữ liệu điểm danh')}
                   onSelectStudent={(id) => {
                     if (authRole === 'teacher' || id === authStudentId) {
@@ -823,7 +927,9 @@ export default function App() {
                   state={state}
                   onAddNotice={handleAddNotice}
                   onDeleteNotice={handleDeleteNotice}
+                  onUpdateNotice={handleUpdateNotice}
                   onUpdateSeatingChart={handleUpdateSeatingChart}
+                  onUpdateSeatingLayout={handleUpdateSeatingLayout}
                   onSelectStudent={(id) => {
                     if (authRole === 'teacher' || id === authStudentId) {
                       setSelectedStudentId(id);
@@ -832,6 +938,7 @@ export default function App() {
                     }
                   }}
                   isTeacher={authRole === 'teacher'}
+                  currentStudentId={authStudentId}
                   onShowToast={showToast}
                 />
               )}
@@ -893,7 +1000,12 @@ export default function App() {
               studentId={selectedStudentId}
               state={state}
               isTeacher={authRole === 'teacher'}
-              onClose={() => setSelectedStudentId(null)}
+              onClose={() => {
+                setSelectedStudentId(null);
+                if (authRole === 'student') {
+                  setCurrentView('board');
+                }
+              }}
               onEditStudent={(s) => {
                 setSelectedStudentId(null);
                 setCurrentView('students');
@@ -902,6 +1014,7 @@ export default function App() {
               onSaveGrades={handleSaveGrades}
               onAddDiscipline={handleAddDiscipline}
               onDeleteDiscipline={handleDeleteDiscipline}
+              onDeleteAttendance={handleDeleteAttendance}
               onAddNote={handleAddNote}
               onDeleteNote={handleDeleteNote}
               onChangePassword={handleChangePassword}

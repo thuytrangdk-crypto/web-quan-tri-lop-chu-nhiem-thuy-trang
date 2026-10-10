@@ -3,6 +3,7 @@ import {
   Megaphone,
   Plus,
   Trash2,
+  Edit2,
   Trophy,
   Calendar,
   Sparkles,
@@ -12,6 +13,7 @@ import {
   Award,
   Grid3X3,
   Flame,
+  UserCheck,
 } from 'lucide-react';
 import { AppState, BoardNotice, NoticeType, SeatingLayout } from '../types';
 import {
@@ -27,10 +29,12 @@ interface BoardViewProps {
   state: AppState;
   onAddNotice: (notice: Omit<BoardNotice, 'id'>) => void;
   onDeleteNotice: (noticeId: string) => void;
+  onUpdateNotice?: (notice: BoardNotice) => void;
   onUpdateSeatingChart: (newChart: Record<string, string>) => void;
   onUpdateSeatingLayout?: (layout: SeatingLayout) => void;
   onSelectStudent: (studentId: string) => void;
   isTeacher: boolean;
+  currentStudentId?: string | null;
   onShowToast: (msg: string, type?: 'success' | 'error') => void;
 }
 
@@ -38,16 +42,24 @@ export const BoardView: React.FC<BoardViewProps> = ({
   state,
   onAddNotice,
   onDeleteNotice,
+  onUpdateNotice,
   onUpdateSeatingChart,
   onUpdateSeatingLayout,
   onSelectStudent,
   isTeacher,
+  currentStudentId,
   onShowToast,
 }) => {
   const [boardSubTab, setBoardSubTab] = useState<'notices' | 'seating' | 'rankings'>('notices');
   const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonthStr());
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
+  const [noticeToEdit, setNoticeToEdit] = useState<BoardNotice | null>(null);
   const [noticeToDelete, setNoticeToDelete] = useState<string | null>(null);
+
+  const loggedStudent = useMemo(() => {
+    if (!currentStudentId) return null;
+    return state.students.find((s) => s.id === currentStudentId) || null;
+  }, [state.students, currentStudentId]);
 
   // Rankings for selectedMonth
   const { topStudents, bottomStudents } = useMemo(() => {
@@ -82,13 +94,34 @@ export const BoardView: React.FC<BoardViewProps> = ({
     return { topStudents: tops, bottomStudents: bots };
   }, [state.students, state.discipline, selectedMonth]);
 
-  const handleSaveNotice = (title: string, content: string, type: NoticeType) => {
-    onAddNotice({
-      date: new Date().toISOString().split('T')[0],
-      title,
-      content,
-      type,
-    });
+  const handleSaveNotice = (
+    title: string,
+    content: string,
+    type: NoticeType,
+    noticeId?: string,
+    date?: string
+  ) => {
+    const noticeDate = date || new Date().toISOString().split('T')[0];
+    if (noticeId && noticeToEdit && onUpdateNotice) {
+      onUpdateNotice({
+        ...noticeToEdit,
+        title,
+        content,
+        type,
+        date: noticeDate,
+      });
+      onShowToast?.('Đã thay đổi thông tin đã đăng thành công');
+    } else {
+      onAddNotice({
+        date: noticeDate,
+        title,
+        content,
+        type,
+      });
+      onShowToast?.('Đã đăng thông tin mới lên bảng tin');
+    }
+    setNoticeToEdit(null);
+    setIsNoticeModalOpen(false);
   };
 
   const handleCelebrate = () => {
@@ -97,6 +130,46 @@ export const BoardView: React.FC<BoardViewProps> = ({
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto h-full flex flex-col pb-10 animate-fadeIn">
+      {/* Student Welcome & Quick Actions Banner */}
+      {!isTeacher && loggedStudent && (
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 rounded-3xl p-4 sm:p-5 text-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-lg shadow-inner overflow-hidden border border-white/30">
+              {loggedStudent.avatar ? (
+                <img
+                  src={loggedStudent.avatar}
+                  alt={loggedStudent.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                loggedStudent.name.charAt(0)
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/25 text-white">
+                  Học sinh Lớp {state.config.className}
+                </span>
+                <span className="text-xs text-blue-100">Năm học {state.config.schoolYear}</span>
+              </div>
+              <h2 className="text-base sm:text-lg font-black tracking-tight mt-0.5 uppercase">
+                {loggedStudent.name}
+              </h2>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onSelectStudent(loggedStudent.id)}
+              className="px-4 py-2 bg-white text-blue-700 hover:bg-blue-50 font-bold rounded-xl text-xs sm:text-sm shadow-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+            >
+              <UserCheck className="w-4 h-4 text-blue-600" />
+              <span>Xem Hồ sơ của tôi</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Tab Switcher at the top of Board */}
       <div className="bg-white p-2 rounded-2xl shadow-xs border border-gray-100 flex items-center justify-between gap-2 overflow-x-auto shrink-0">
         <div className="flex gap-1.5">
@@ -109,7 +182,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
             }`}
           >
             <Megaphone className="w-4 h-4" />
-            <span>Thông báo lớp</span>
+            <span>Bảng tin Thông báo</span>
           </button>
 
           <button
@@ -121,7 +194,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
             }`}
           >
             <Grid3X3 className="w-4 h-4" />
-            <span>Sơ đồ chỗ ngồi</span>
+            <span>Sơ đồ lớp</span>
           </button>
 
           <button
@@ -139,11 +212,14 @@ export const BoardView: React.FC<BoardViewProps> = ({
 
         {boardSubTab === 'notices' && isTeacher && (
           <button
-            onClick={() => setIsNoticeModalOpen(true)}
+            onClick={() => {
+              setNoticeToEdit(null);
+              setIsNoticeModalOpen(true);
+            }}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
-            <span>Đăng tin mới</span>
+            <span>Đăng thông tin mới</span>
           </button>
         )}
       </div>
@@ -156,6 +232,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
           onUpdateSeatingLayout={onUpdateSeatingLayout}
           onSelectStudent={onSelectStudent}
           isTeacher={isTeacher}
+          currentStudentId={currentStudentId}
           onShowToast={onShowToast}
         />
       )}
@@ -172,10 +249,10 @@ export const BoardView: React.FC<BoardViewProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-gray-900 text-base">
-                    Bảng tin Thông báo Lớp
+                    Trang thông tin &amp; Bảng tin Lớp {state.config.className}
                   </h3>
                   <p className="text-xs text-gray-400">
-                    Các thông báo từ GVCN đến học sinh và phụ huynh
+                    Các thông báo, kế hoạch và nhắc nhở từ GVCN đến lớp
                   </p>
                 </div>
               </div>
@@ -186,10 +263,12 @@ export const BoardView: React.FC<BoardViewProps> = ({
                 <div className="text-center text-gray-400 py-16 flex flex-col items-center">
                   <Megaphone className="w-12 h-12 text-gray-200 mb-3" />
                   <p className="text-base font-semibold text-gray-600">
-                    Chưa có thông báo nào
+                    Chưa có thông tin hoặc thông báo nào
                   </p>
                   <p className="text-xs text-gray-400 mt-1">
-                    Bấm "Đăng tin mới" để gửi thông báo đầu tiên cho lớp.
+                    {isTeacher
+                      ? 'Bấm "Đăng thông tin mới" để gửi thông báo đầu tiên cho lớp.'
+                      : 'Hiện chưa có thông báo mới từ GVCN.'}
                   </p>
                 </div>
               ) : (
@@ -219,28 +298,49 @@ export const BoardView: React.FC<BoardViewProps> = ({
                     return (
                       <div
                         key={notice.id}
-                        className={`p-5 rounded-2xl shadow-xs border relative group hover:shadow-md transition-shadow ${borderStyle}`}
+                        className={`p-5 rounded-2xl shadow-xs border relative transition-all ${borderStyle}`}
                       >
-                        {isTeacher && (
-                          <button
-                            onClick={() => setNoticeToDelete(notice.id)}
-                            className="absolute top-4 right-4 w-7 h-7 rounded-lg bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                            title="Xóa thông báo"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {icon}
+                            <h4 className="font-bold text-gray-900 text-sm sm:text-base break-words">
+                              {notice.title}
+                            </h4>
+                          </div>
 
-                        <div className="flex items-center gap-2 mb-2">
-                          {icon}
-                          <h4 className="font-bold text-gray-900 text-sm sm:text-base">
-                            {notice.title}
-                          </h4>
-                          <span
-                            className={`ml-auto mr-7 text-[10px] font-bold px-2 py-0.5 rounded-full ${tagBg}`}
-                          >
-                            {tagText}
-                          </span>
+                          <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+                            <span
+                              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${tagBg}`}
+                            >
+                              {tagText}
+                            </span>
+
+                            {isTeacher && (
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setNoticeToEdit(notice);
+                                    setIsNoticeModalOpen(true);
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer border border-blue-200/80 shadow-2xs"
+                                  title="Chỉnh sửa hoặc thay đổi thông tin đã đăng"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                  <span>Thay đổi</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setNoticeToDelete(notice.id)}
+                                  className="px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer border border-red-200/80 shadow-2xs"
+                                  title="Xóa thông tin đã đăng"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Xóa</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         <p className="text-xs sm:text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
@@ -438,15 +538,23 @@ export const BoardView: React.FC<BoardViewProps> = ({
       {/* Modals */}
       <BoardNoticeModal
         isOpen={isNoticeModalOpen}
+        initialNotice={noticeToEdit}
         onSave={handleSaveNotice}
-        onClose={() => setIsNoticeModalOpen(false)}
+        onDelete={(id) => {
+          setIsNoticeModalOpen(false);
+          setNoticeToDelete(id);
+        }}
+        onClose={() => {
+          setIsNoticeModalOpen(false);
+          setNoticeToEdit(null);
+        }}
       />
 
       <ConfirmModal
         isOpen={!!noticeToDelete}
-        title="Xóa thông báo"
-        message="Bạn có chắc chắn muốn xóa thông báo này khỏi bảng tin lớp?"
-        confirmText="Xóa thông báo"
+        title="Xóa thông tin đã đăng"
+        message="Bạn có chắc chắn muốn xóa bài đăng thông báo này khỏi bảng tin lớp không? Thao tác này sẽ cập nhật ngay lập tức."
+        confirmText="Xóa thông tin"
         onConfirm={() => {
           if (noticeToDelete) {
             onDeleteNotice(noticeToDelete);

@@ -220,7 +220,7 @@ export const DEFAULT_INITIAL_STATE: AppState = {
   students: INITIAL_STUDENTS,
   seatingLayout: {
     groups: 4,
-    rows: 4,
+    rows: 8,
     seatsPerTable: 2,
   },
   seatingChart: {

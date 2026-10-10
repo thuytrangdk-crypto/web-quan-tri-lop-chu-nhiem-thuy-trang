@@ -93,4 +93,8 @@ export interface AppState {
   boardNotices: BoardNotice[];
   seatingChart?: Record<string, string>; // seatKey -> studentId
   seatingLayout?: SeatingLayout;
+  _syncMeta?: {
+    clientId?: string;
+    timestamp?: number;
+  };
 }

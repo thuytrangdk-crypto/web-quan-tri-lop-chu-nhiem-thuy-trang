@@ -63,12 +63,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     e.target.value = '';
   };
 
-  const navItems = [
+  const teacherNavItems = [
     { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
     { id: 'board', label: 'Bảng tin & Sơ đồ lớp', icon: Megaphone },
     { id: 'students', label: 'Học sinh', icon: GraduationCap },
     { id: 'attendance', label: 'Điểm danh', icon: CalendarCheck2 },
   ];
+
+  const studentNavItems = [
+    { id: 'board', label: 'Bảng tin & Sơ đồ lớp', icon: Megaphone },
+    { id: 'profile', label: 'Hồ sơ của tôi', icon: UserCheck },
+  ];
+
+  const navItems = isTeacher ? teacherNavItems : studentNavItems;
 
   return (
     <>
@@ -150,6 +157,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 key={item.id}
                 onClick={() => {
                   onNavigate(item.id);
+                  if (item.id === 'profile' && onOpenMyProfile) {
+                    onOpenMyProfile();
+                  }
                   onCloseMobile();
                 }}
                 className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-bold text-xs sm:text-sm transition-all text-left cursor-pointer ${
@@ -167,20 +177,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             );
           })}
-
-          {/* Quick My Profile for Student */}
-          {!isTeacher && onOpenMyProfile && (
-            <button
-              onClick={() => {
-                onOpenMyProfile();
-                onCloseMobile();
-              }}
-              className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-bold text-xs sm:text-sm text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 transition-all text-left cursor-pointer border border-emerald-200/80 mt-2"
-            >
-              <UserCheck className="w-5 h-5 text-emerald-600" />
-              <span>Hồ sơ của tôi</span>
-            </button>
-          )}
 
           {/* Teacher Only System Section */}
           {isTeacher && (
