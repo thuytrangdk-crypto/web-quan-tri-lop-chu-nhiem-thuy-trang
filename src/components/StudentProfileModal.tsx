@@ -32,6 +32,7 @@ import {
 } from '../types';
 import {
   calculateConduct,
+  calculateStudentPoints,
   formatDisplayDate,
   getCurrentMonthStr,
   getTodayStr,
@@ -133,14 +134,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     (a) => a.status === 'v' || a.status === 'kp' || a.status === 'm'
   ).length;
 
-  // Discipline stats
+  // Discipline stats: Calculate remaining emulation score based on initialPoints
   const studentDiscipline = state.discipline.filter(
     (d) => d.studentId === student.id && !locallyDeletedDisciplineIds.includes(d.id)
   );
-  let overallPoints = 0;
-  studentDiscipline.forEach((d) => {
-    overallPoints += d.type === 'plus' ? d.points : -d.points;
-  });
+  const baseScore = state.config.initialPoints ?? 100;
+  const overallSummary = calculateStudentPoints(studentDiscipline, baseScore);
+  const overallPoints = overallSummary.remainingPoints;
   const overallConduct = calculateConduct(overallPoints, state.config.conductThresholds);
 
   // GPA calculation
@@ -163,10 +163,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
       ? studentDiscipline
       : studentDiscipline.filter((d) => d.date.startsWith(selectedDisciplineMonth));
 
-  let monthPoints = 0;
-  filteredDiscipline.forEach((d) => {
-    monthPoints += d.type === 'plus' ? d.points : -d.points;
-  });
+  const monthSummary = calculateStudentPoints(filteredDiscipline, baseScore);
+  const monthPoints = monthSummary.remainingPoints;
   const monthConduct = calculateConduct(monthPoints, state.config.conductThresholds);
 
   const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -410,16 +408,26 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 className="bg-purple-50/50 hover:bg-purple-100/60 border border-purple-100 rounded-2xl p-3.5 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:-translate-y-0.5 shadow-2xs"
               >
                 <span className="text-[11px] font-bold text-purple-700 uppercase flex items-center gap-1 mb-1">
-                  <Scale className="w-3.5 h-3.5" /> Thi đua
+                  <Scale className="w-3.5 h-3.5" /> Điểm thi đua còn lại
                 </span>
                 <p
                   className={`text-xl font-black ${
-                    overallPoints >= 0 ? 'text-purple-800' : 'text-red-600'
+                    overallPoints >= 90
+                      ? 'text-emerald-700'
+                      : overallPoints >= 80
+                      ? 'text-blue-700'
+                      : overallPoints >= 65
+                      ? 'text-amber-600'
+                      : 'text-red-600'
                   }`}
                 >
-                  {overallPoints > 0 ? `+${overallPoints}` : overallPoints}{' '}
-                  <span className="text-xs font-normal text-purple-600">điểm</span>
+                  {overallPoints}{' '}
+                  <span className="text-xs font-normal text-purple-600">/ {baseScore}đ</span>
                 </p>
+                <span className="text-[10px] text-gray-500 mt-0.5 font-medium">
+                  {overallSummary.totalMinus > 0 ? `Trừ: -${overallSummary.totalMinus}đ` : 'Chưa có điểm trừ'}
+                  {overallSummary.totalPlus > 0 ? ` • +${overallSummary.totalPlus}đ` : ''}
+                </span>
               </div>
 
               {/* Card 4: Hạnh kiểm */}
@@ -822,18 +830,32 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         </select>
                       </div>
 
-                      <div className="flex items-center gap-6">
+                      <div className="flex flex-wrap items-center gap-6">
                         <div className="text-right">
                           <span className="text-[10px] font-bold text-gray-400 uppercase block">
-                            Tổng điểm
+                            Điểm thi đua còn lại
                           </span>
-                          <span
-                            className={`text-2xl font-black ${
-                              monthPoints >= 0 ? 'text-emerald-600' : 'text-red-600'
-                            }`}
-                          >
-                            {monthPoints > 0 ? `+${monthPoints}` : monthPoints}
-                          </span>
+                          <div className="flex items-baseline justify-end gap-1">
+                            <span
+                              className={`text-2xl font-black ${
+                                monthPoints >= 90
+                                  ? 'text-emerald-600'
+                                  : monthPoints >= 80
+                                  ? 'text-blue-600'
+                                  : monthPoints >= 65
+                                  ? 'text-amber-600'
+                                  : 'text-red-600'
+                              }`}
+                            >
+                              {monthPoints}
+                            </span>
+                            <span className="text-xs font-bold text-gray-400">/ {baseScore}đ</span>
+                          </div>
+                          <div className="text-[10px] text-gray-500 flex items-center gap-1.5 justify-end mt-0.5 font-medium">
+                            <span>Điểm trừ: <strong className="text-red-500 font-bold">-{monthSummary.totalMinus}đ</strong></span>
+                            <span>•</span>
+                            <span>Thưởng: <strong className="text-emerald-600 font-bold">+{monthSummary.totalPlus}đ</strong></span>
+                          </div>
                         </div>
                         <div className="text-right border-l pl-4 border-gray-200">
                           <span className="text-[10px] font-bold text-gray-400 uppercase block">

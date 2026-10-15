@@ -383,7 +383,11 @@ export default function App() {
         if (!selectedStudentId && authStudentId) {
           setSelectedStudentId(authStudentId);
         }
-      } else if (currentView !== 'board') {
+      } else if (
+        currentView !== 'board' &&
+        currentView !== 'board_notices' &&
+        currentView !== 'board_seating'
+      ) {
         setCurrentView('board');
       }
     }
@@ -922,9 +926,14 @@ export default function App() {
                 />
               )}
 
-              {currentView === 'board' && (
+              {(currentView === 'board' ||
+                currentView === 'board_notices' ||
+                currentView === 'board_seating') && (
                 <BoardView
                   state={state}
+                  initialTab={
+                    currentView === 'board_seating' ? 'seating' : 'notices'
+                  }
                   onAddNotice={handleAddNotice}
                   onDeleteNotice={handleDeleteNotice}
                   onUpdateNotice={handleUpdateNotice}

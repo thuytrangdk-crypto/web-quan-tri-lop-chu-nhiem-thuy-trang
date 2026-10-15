@@ -54,10 +54,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [teacherName, setTeacherName] = useState(state.config.teacherName);
   const [teacherPassword, setTeacherPassword] = useState(state.config.teacherPassword);
 
-  // Conduct thresholds state
-  const [goodScore, setGoodScore] = useState(state.config.conductThresholds.good);
-  const [fairScore, setFairScore] = useState(state.config.conductThresholds.fair);
-  const [avgScore, setAvgScore] = useState(state.config.conductThresholds.average);
+  // Conduct & Points thresholds state
+  const isInitialLegacy = (state.config.conductThresholds?.good ?? 0) <= 0;
+  const [initialPoints, setInitialPoints] = useState(state.config.initialPoints ?? 100);
+  const [goodScore, setGoodScore] = useState(
+    isInitialLegacy ? 90 : (state.config.conductThresholds?.good ?? 90)
+  );
+  const [fairScore, setFairScore] = useState(
+    isInitialLegacy ? 80 : (state.config.conductThresholds?.fair ?? 80)
+  );
+  const [avgScore, setAvgScore] = useState(
+    isInitialLegacy ? 65 : (state.config.conductThresholds?.average ?? 65)
+  );
 
   // Rule modal state
   const [isRuleModalOpen, setIsRuleModalOpen] = useState(false);
@@ -84,9 +92,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setSchoolYear(state.config.schoolYear);
     setTeacherName(state.config.teacherName);
     setTeacherPassword(state.config.teacherPassword);
-    setGoodScore(state.config.conductThresholds?.good ?? 0);
-    setFairScore(state.config.conductThresholds?.fair ?? -5);
-    setAvgScore(state.config.conductThresholds?.average ?? -10);
+    setInitialPoints(state.config.initialPoints ?? 100);
+    const legacy = (state.config.conductThresholds?.good ?? 0) <= 0;
+    setGoodScore(legacy ? 90 : (state.config.conductThresholds?.good ?? 90));
+    setFairScore(legacy ? 80 : (state.config.conductThresholds?.fair ?? 80));
+    setAvgScore(legacy ? 65 : (state.config.conductThresholds?.average ?? 65));
   }, [state.config]);
 
   const handleSaveGeneral = (e: React.FormEvent) => {
@@ -103,12 +113,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleSaveConductThresholds = () => {
     const thresholds: ConductThresholds = {
-      good: Number(goodScore) || 0,
-      fair: Number(fairScore) || -5,
-      average: Number(avgScore) || -10,
+      good: Number(goodScore) || 90,
+      fair: Number(fairScore) || 80,
+      average: Number(avgScore) || 65,
     };
-    onUpdateConfig({ conductThresholds: thresholds });
-    onShowToast('Đã cập nhật tiêu chí Hạnh kiểm');
+    onUpdateConfig({
+      conductThresholds: thresholds,
+      initialPoints: Math.max(10, Number(initialPoints) || 100),
+    });
+    onShowToast('Đã cập nhật thang điểm và tiêu chí Hạnh kiểm');
   };
 
   const handleOpenAddRule = () => {
@@ -460,11 +473,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 space-y-4">
                 <div>
                   <h4 className="font-bold text-gray-900 text-sm">
-                    Tiêu chí Đánh giá Hạnh kiểm theo điểm thi đua
+                    Thang điểm thi đua &amp; Tiêu chí Xếp loại Hạnh kiểm
                   </h4>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Cài đặt ngưỡng điểm tối thiểu (tổng điểm thi đua) để đạt mức xếp loại
+                    Mỗi học sinh bắt đầu với điểm chuẩn ban đầu. Điểm thi đua còn lại = Điểm ban đầu + Điểm thưởng - Điểm vi phạm.
                   </p>
+                </div>
+
+                {/* Điểm chuẩn ban đầu */}
+                <div className="bg-white p-3.5 rounded-xl border border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                  <div>
+                    <label className="text-xs font-bold text-gray-800 block">
+                      Điểm thi đua chuẩn ban đầu (Xuất phát)
+                    </label>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      Điểm gốc của mỗi học sinh trong mỗi kỳ/tháng đánh giá (mặc định: 100 điểm)
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="10"
+                      max="1000"
+                      value={initialPoints}
+                      onChange={(e) => setInitialPoints(Number(e.target.value))}
+                      className="w-24 px-3 py-1.5 text-center font-black text-sm text-blue-700 border border-blue-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-blue-50/30"
+                    />
+                    <span className="text-xs font-bold text-gray-600">điểm</span>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

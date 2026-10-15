@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import confetti from 'canvas-confetti';
-import { ConductThresholds, Student } from '../types';
+import { ConductThresholds, Student, DisciplineRecord } from '../types';
 
 export const generateId = (): string => Math.random().toString(36).substring(2, 11);
 
@@ -89,11 +89,49 @@ export const getStudentDobDisplay = (dob?: string): string => {
   return dob;
 };
 
+export interface StudentPointsSummary {
+  remainingPoints: number;
+  totalPlus: number;
+  totalMinus: number;
+  netDiff: number;
+  basePoints: number;
+}
+
+export const calculateStudentPoints = (
+  records: DisciplineRecord[] = [],
+  basePoints: number = 100
+): StudentPointsSummary => {
+  let totalPlus = 0;
+  let totalMinus = 0;
+  records.forEach((r) => {
+    if (r.type === 'plus') {
+      totalPlus += Number(r.points) || 0;
+    } else {
+      totalMinus += Number(r.points) || 0;
+    }
+  });
+  const netDiff = totalPlus - totalMinus;
+  const remainingPoints = basePoints + netDiff;
+  return {
+    remainingPoints,
+    totalPlus,
+    totalMinus,
+    netDiff,
+    basePoints,
+  };
+};
+
 export const calculateConduct = (
   totalScore: number,
-  thresholds: ConductThresholds = { good: 0, fair: -5, average: -10 }
+  thresholds: ConductThresholds = { good: 90, fair: 80, average: 65 }
 ): { text: string; color: string; bg: string; border: string } => {
-  if (totalScore < thresholds.average) {
+  // Gracefully adapt legacy negative/zero thresholds (e.g. good: 0, fair: -5, average: -10) to 100-point scale
+  const isLegacyThreshold = thresholds.good <= 0 && totalScore > 20;
+  const goodThresh = isLegacyThreshold ? 90 : (thresholds.good ?? 90);
+  const fairThresh = isLegacyThreshold ? 80 : (thresholds.fair ?? 80);
+  const avgThresh = isLegacyThreshold ? 65 : (thresholds.average ?? 65);
+
+  if (totalScore < avgThresh) {
     return {
       text: 'Yếu',
       color: 'text-red-600',
@@ -101,7 +139,7 @@ export const calculateConduct = (
       border: 'border-red-200',
     };
   }
-  if (totalScore < thresholds.fair) {
+  if (totalScore < fairThresh) {
     return {
       text: 'Trung bình',
       color: 'text-orange-500',
@@ -109,7 +147,7 @@ export const calculateConduct = (
       border: 'border-orange-200',
     };
   }
-  if (totalScore < thresholds.good) {
+  if (totalScore < goodThresh) {
     return {
       text: 'Khá',
       color: 'text-blue-600',

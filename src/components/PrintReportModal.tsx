@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { X, Printer, GraduationCap, Award, Calendar, Phone, MapPin } from 'lucide-react';
 import { AppState, Student } from '../types';
-import { calculateConduct, formatDisplayDate } from '../utils/helpers';
+import { calculateConduct, calculateStudentPoints, formatDisplayDate } from '../utils/helpers';
 
 interface PrintReportModalProps {
   isOpen: boolean;
@@ -28,11 +28,10 @@ export const PrintReportModal: React.FC<PrintReportModalProps> = ({
 
   // Calculate discipline & conduct
   const studentDisc = state.discipline.filter((d) => d.studentId === student.id);
-  let totalPoints = 0;
-  studentDisc.forEach((d) => {
-    totalPoints += d.type === 'plus' ? d.points : -d.points;
-  });
-  const conduct = calculateConduct(totalPoints, state.config.conductThresholds);
+  const baseScore = state.config.initialPoints ?? 100;
+  const discSummary = calculateStudentPoints(studentDisc, baseScore);
+  const remainingPoints = discSummary.remainingPoints;
+  const conduct = calculateConduct(remainingPoints, state.config.conductThresholds);
 
   // Grades summary
   const grades = student.grades || {};
@@ -149,7 +148,23 @@ export const PrintReportModal: React.FC<PrintReportModalProps> = ({
                   <Award className="w-3.5 h-3.5 text-indigo-600" /> Rèn luyện &amp; Hạnh kiểm
                 </h5>
                 <div className="text-xs space-y-1">
-                  <p>Tổng điểm thi đua: <strong className={totalPoints >= 0 ? 'text-emerald-600' : 'text-red-600'}>{totalPoints > 0 ? `+${totalPoints}` : totalPoints} điểm</strong></p>
+                  <p>
+                    Điểm thi đua còn lại:{' '}
+                    <strong
+                      className={
+                        remainingPoints >= 80
+                          ? 'text-emerald-600'
+                          : remainingPoints >= 65
+                          ? 'text-amber-600'
+                          : 'text-red-600'
+                      }
+                    >
+                      {remainingPoints} / {baseScore} điểm
+                    </strong>
+                  </p>
+                  <p className="text-[11px] text-gray-500">
+                    (Điểm ban đầu: {baseScore}đ, Thưởng: +{discSummary.totalPlus}đ, Trừ: -{discSummary.totalMinus}đ)
+                  </p>
                   <p>Xếp loại hạnh kiểm: <strong className="text-indigo-700 uppercase font-extrabold text-sm">{conduct.text}</strong></p>
                   <p>Điểm trung bình học tập: <strong className="text-indigo-700">{gpaStr}</strong></p>
                 </div>

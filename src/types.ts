@@ -28,6 +28,7 @@ export interface AppConfig {
   subjects: string[];
   rules: Rule[];
   conductThresholds: ConductThresholds;
+  initialPoints?: number; // Base emulation score (default: 100)
   availableClasses?: string[];
 }
 
@@ -76,6 +77,7 @@ export interface BoardNotice {
   title: string;
   content: string;
   type: NoticeType;
+  image?: string; // Base64 image data or URL
 }
 
 export interface SeatingLayout {

@@ -215,7 +215,8 @@ export const DEFAULT_INITIAL_STATE: AppState = {
       { id: 'r10', name: 'Nhặt được của rơi trả người đánh mất', points: 5, type: 'plus' },
       { id: 'r11', name: 'Tham gia tích cực phong trào lớp', points: 2, type: 'plus' },
     ],
-    conductThresholds: { good: 0, fair: -5, average: -10 },
+    initialPoints: 100,
+    conductThresholds: { good: 90, fair: 80, average: 65 },
   },
   students: INITIAL_STUDENTS,
   seatingLayout: {
@@ -317,6 +318,8 @@ export const DEFAULT_INITIAL_STATE: AppState = {
       content:
         'Biểu dương tập thể lớp đã hoàn thành xuất sắc sản phẩm Báo tường chào mừng Ngày Nhà giáo Việt Nam và đạt giải Nhì toàn trường!',
       type: 'success',
+      image:
+        'https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=1000&q=80',
     },
     {
       id: 'bn-3',

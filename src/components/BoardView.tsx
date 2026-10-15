@@ -14,9 +14,12 @@ import {
   Grid3X3,
   Flame,
   UserCheck,
+  Image as ImageIcon,
+  X,
 } from 'lucide-react';
 import { AppState, BoardNotice, NoticeType, SeatingLayout } from '../types';
 import {
+  calculateStudentPoints,
   formatDisplayDate,
   getCurrentMonthStr,
   triggerConfetti,
@@ -35,6 +38,7 @@ interface BoardViewProps {
   onSelectStudent: (studentId: string) => void;
   isTeacher: boolean;
   currentStudentId?: string | null;
+  initialTab?: 'notices' | 'seating' | 'rankings';
   onShowToast: (msg: string, type?: 'success' | 'error') => void;
 }
 
@@ -48,58 +52,70 @@ export const BoardView: React.FC<BoardViewProps> = ({
   onSelectStudent,
   isTeacher,
   currentStudentId,
+  initialTab,
   onShowToast,
 }) => {
-  const [boardSubTab, setBoardSubTab] = useState<'notices' | 'seating' | 'rankings'>('notices');
+  const [boardSubTab, setBoardSubTab] = useState<'notices' | 'seating' | 'rankings'>(
+    initialTab || 'notices'
+  );
   const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonthStr());
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
   const [noticeToEdit, setNoticeToEdit] = useState<BoardNotice | null>(null);
   const [noticeToDelete, setNoticeToDelete] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (initialTab) {
+      setBoardSubTab(initialTab);
+    }
+  }, [initialTab]);
 
   const loggedStudent = useMemo(() => {
     if (!currentStudentId) return null;
     return state.students.find((s) => s.id === currentStudentId) || null;
   }, [state.students, currentStudentId]);
 
-  // Rankings for selectedMonth
+  // Rankings for selectedMonth: Remaining emulation points
   const { topStudents, bottomStudents } = useMemo(() => {
+    const baseScore = state.config.initialPoints ?? 100;
     const scores = state.students.map((student) => {
       const monthDiscipline = state.discipline.filter(
         (d) => d.studentId === student.id && d.date.startsWith(selectedMonth)
       );
 
-      let totalPoints = 0;
-      monthDiscipline.forEach((d) => {
-        totalPoints += d.type === 'plus' ? d.points : -d.points;
-      });
+      const summary = calculateStudentPoints(monthDiscipline, baseScore);
 
       return {
         id: student.id,
         name: student.name,
         avatar: student.avatar,
-        points: totalPoints,
+        points: summary.remainingPoints,
+        totalPlus: summary.totalPlus,
+        totalMinus: summary.totalMinus,
+        netDiff: summary.netDiff,
       };
     });
 
-    const tops = scores
-      .filter((s) => s.points > 0)
+    const tops = [...scores]
+      .filter((s) => s.totalPlus > 0 || s.points >= baseScore)
       .sort((a, b) => b.points - a.points)
       .slice(0, 5);
 
-    const bots = scores
-      .filter((s) => s.points < 0)
+    const bots = [...scores]
+      .filter((s) => s.totalMinus > 0 || s.points < baseScore)
       .sort((a, b) => a.points - b.points)
       .slice(0, 5);
 
     return { topStudents: tops, bottomStudents: bots };
-  }, [state.students, state.discipline, selectedMonth]);
+  }, [state.students, state.discipline, selectedMonth, state.config.initialPoints]);
 
   const handleSaveNotice = (
     title: string,
     content: string,
     type: NoticeType,
     noticeId?: string,
-    date?: string
+    date?: string,
+    image?: string
   ) => {
     const noticeDate = date || new Date().toISOString().split('T')[0];
     if (noticeId && noticeToEdit && onUpdateNotice) {
@@ -109,6 +125,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
         content,
         type,
         date: noticeDate,
+        image,
       });
       onShowToast?.('Đã thay đổi thông tin đã đăng thành công');
     } else {
@@ -117,6 +134,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
         title,
         content,
         type,
+        image,
       });
       onShowToast?.('Đã đăng thông tin mới lên bảng tin');
     }
@@ -347,6 +365,26 @@ export const BoardView: React.FC<BoardViewProps> = ({
                           {notice.content}
                         </p>
 
+                        {/* Attached Image */}
+                        {notice.image && (
+                          <div className="mt-3.5 overflow-hidden rounded-2xl border border-gray-200/80 bg-slate-900/5 group/img relative max-h-72">
+                            <img
+                              src={notice.image}
+                              alt={notice.title}
+                              className="w-full max-h-72 object-cover sm:object-contain cursor-pointer transition-transform duration-200 group-hover/img:scale-[1.01]"
+                              onClick={() => setPreviewImage(notice.image || null)}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImage(notice.image || null)}
+                              className="absolute bottom-2.5 right-2.5 px-2.5 py-1 bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white text-[11px] font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer opacity-90 hover:opacity-100 transition-opacity"
+                            >
+                              <ImageIcon className="w-3.5 h-3.5" />
+                              <span>Phóng to ảnh</span>
+                            </button>
+                          </div>
+                        )}
+
                         <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-400">
                           <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" /> Ngày đăng: {formatDisplayDate(notice.date)}
@@ -396,8 +434,8 @@ export const BoardView: React.FC<BoardViewProps> = ({
                       <span className="text-xs font-bold text-gray-900 uppercase flex-1 break-words leading-tight">
                         {s.name}
                       </span>
-                      <span className="text-xs font-black text-emerald-600">
-                        +{s.points}đ
+                      <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                        Còn {s.points}đ
                       </span>
                     </li>
                   ))}
@@ -487,9 +525,16 @@ export const BoardView: React.FC<BoardViewProps> = ({
                       <span className="text-xs sm:text-sm font-bold text-gray-900 uppercase flex-1 break-words leading-tight">
                         {s.name}
                       </span>
-                      <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md">
-                        +{s.points}đ
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {s.totalPlus > 0 && (
+                          <span className="text-[11px] font-bold text-emerald-600 hidden sm:inline">
+                            +{s.totalPlus}đ thưởng
+                          </span>
+                        )}
+                        <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
+                          Còn {s.points}đ
+                        </span>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -499,7 +544,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
             {/* Cần cố gắng hơn */}
             <div className="bg-red-50/40 rounded-2xl p-5 border border-red-100">
               <h4 className="text-xs font-black text-red-800 uppercase tracking-wider mb-4 flex items-center gap-2">
-                <ArrowDown className="w-4 h-4 text-red-600" /> Cần Cố Gắng Hơn (- Điểm)
+                <ArrowDown className="w-4 h-4 text-red-600" /> Cần Cố Gắng Hơn (Điểm thi đua còn lại thấp)
               </h4>
 
               {bottomStudents.length === 0 ? (
@@ -523,9 +568,16 @@ export const BoardView: React.FC<BoardViewProps> = ({
                       <span className="text-xs sm:text-sm font-bold text-gray-900 uppercase flex-1 break-words leading-tight">
                         {s.name}
                       </span>
-                      <span className="text-xs font-black text-red-600 bg-red-50 px-2.5 py-1 rounded-md">
-                        {s.points}đ
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {s.totalMinus > 0 && (
+                          <span className="text-[11px] font-bold text-red-500 hidden sm:inline">
+                            -{s.totalMinus}đ vi phạm
+                          </span>
+                        )}
+                        <span className="text-xs font-black text-red-600 bg-red-50 px-2.5 py-1 rounded-md border border-red-200">
+                          Còn {s.points}đ
+                        </span>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -563,6 +615,30 @@ export const BoardView: React.FC<BoardViewProps> = ({
         }}
         onCancel={() => setNoticeToDelete(null)}
       />
+
+      {/* Image Preview Lightbox Modal */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[160] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-12 right-0 bg-white/20 hover:bg-white/40 text-white rounded-full p-2 transition-colors cursor-pointer"
+              title="Đóng xem ảnh"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={previewImage}
+              alt="Phóng to thông báo"
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/20"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

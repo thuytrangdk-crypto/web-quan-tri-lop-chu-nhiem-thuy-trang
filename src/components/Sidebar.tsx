@@ -12,6 +12,7 @@ import {
   Cloud,
   KeyRound,
   UserCheck,
+  Grid3X3,
 } from 'lucide-react';
 import { resizeImageBase64 } from '../utils/helpers';
 import { SyncStatus } from '../services/supabaseService';
@@ -71,7 +72,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   const studentNavItems = [
-    { id: 'board', label: 'Bảng tin & Sơ đồ lớp', icon: Megaphone },
+    { id: 'board_notices', label: 'Bảng tin thông báo', icon: Megaphone },
+    { id: 'board_seating', label: 'Sơ đồ lớp học', icon: Grid3X3 },
     { id: 'profile', label: 'Hồ sơ của tôi', icon: UserCheck },
   ];
 
@@ -151,7 +153,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = currentView === item.id;
+            const isActive =
+              currentView === item.id ||
+              (item.id === 'board_notices' && currentView === 'board') ||
+              (item.id === 'board' &&
+                (currentView === 'board' ||
+                  currentView === 'board_notices' ||
+                  currentView === 'board_seating'));
             return (
               <button
                 key={item.id}
