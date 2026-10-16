@@ -24,6 +24,7 @@ import {
 import { StudentFormModal } from './StudentFormModal';
 import { ExcelImportModal } from './ExcelImportModal';
 import { ConfirmModal } from './ConfirmModal';
+import { EmulationExportModal } from './EmulationExportModal';
 
 interface StudentsViewProps {
   state: AppState;
@@ -62,6 +63,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   const [isExcelOpen, setIsExcelOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [isConfirmClearAllOpen, setIsConfirmClearAllOpen] = useState(false);
+  const [isEmulationExportOpen, setIsEmulationExportOpen] = useState(false);
 
   // Detect initial 8 sample students
   const sampleStudentIds = useMemo(
@@ -212,6 +214,17 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
 
           {isTeacher && (
             <>
+              {/* Xuất Excel thi đua */}
+              <button
+                type="button"
+                onClick={() => setIsEmulationExportOpen(true)}
+                className="px-3.5 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold rounded-xl text-xs sm:text-sm border border-purple-200 flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                title="Xuất Excel thi đua cho toàn bộ học sinh của lớp đang chọn"
+              >
+                <Award className="w-4 h-4 text-purple-600" />
+                <span>Xuất Excel thi đua</span>
+              </button>
+
               {/* Import Excel */}
               <button
                 onClick={() => setIsExcelOpen(true)}
@@ -598,6 +611,14 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
           setIsConfirmClearAllOpen(false);
         }}
         onCancel={() => setIsConfirmClearAllOpen(false)}
+      />
+
+      {/* Emulation Excel Export Modal */}
+      <EmulationExportModal
+        isOpen={isEmulationExportOpen}
+        state={state}
+        onClose={() => setIsEmulationExportOpen(false)}
+        onShowToast={onShowToast}
       />
     </div>
   );
