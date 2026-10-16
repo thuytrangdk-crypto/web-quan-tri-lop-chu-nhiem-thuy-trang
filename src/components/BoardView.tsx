@@ -16,6 +16,8 @@ import {
   UserCheck,
   Image as ImageIcon,
   X,
+  GraduationCap,
+  BookOpen,
 } from 'lucide-react';
 import { AppState, BoardNotice, NoticeType, SeatingLayout } from '../types';
 import {
@@ -75,8 +77,69 @@ export const BoardView: React.FC<BoardViewProps> = ({
     return state.students.find((s) => s.id === currentStudentId) || null;
   }, [state.students, currentStudentId]);
 
-  // Rankings for selectedMonth: Remaining emulation points
-  const { topStudents, bottomStudents } = useMemo(() => {
+  // TOP 5 HỌC TẬP: Tính thuần túy dựa trên điểm trung bình (GPA) các môn học thực tế
+  const topAcademicStudents = useMemo(() => {
+    // 1. Chỉ lấy học sinh có ít nhất 1 đầu điểm thực tế (không coi điểm chưa nhập là 0)
+    const candidates = state.students
+      .map((student) => {
+        const grades = student.grades || {};
+        const validSubjects = Object.keys(grades).filter(
+          (sub) =>
+            typeof grades[sub] === 'number' &&
+            !isNaN(grades[sub]) &&
+            grades[sub] !== null &&
+            grades[sub] !== undefined
+        );
+
+        if (validSubjects.length === 0) {
+          // Bỏ qua học sinh chưa có điểm học tập
+          return null;
+        }
+
+        // Tái sử dụng công thức tính điểm trung bình học tập hiện có: Tổng điểm / Số môn đã có điểm
+        const total = validSubjects.reduce((acc, sub) => acc + Number(grades[sub]), 0);
+        const rawGPA = total / validSubjects.length;
+        const roundedGPA = Math.round(rawGPA * 10) / 10;
+        const gpaDisplay = roundedGPA.toFixed(1).replace('.', ',');
+
+        return {
+          id: student.id,
+          name: student.name,
+          avatar: student.avatar,
+          rawGPA,
+          roundedGPA,
+          gpaDisplay,
+          subjectCount: validSubjects.length,
+        };
+      })
+      .filter((s): s is NonNullable<typeof s> => s !== null);
+
+    // 2. Sắp xếp theo điểm học tập giảm dần. Nếu bằng điểm, sắp xếp ổn định theo mã hồ sơ (id)
+    candidates.sort((a, b) => {
+      if (b.roundedGPA !== a.roundedGPA) {
+        return b.roundedGPA - a.roundedGPA;
+      }
+      return a.id.localeCompare(b.id, 'vi');
+    });
+
+    // 3. Lấy tối đa 5 học sinh
+    const top5 = candidates.slice(0, 5);
+
+    // 4. Xếp hạng: Học sinh bằng điểm có cùng hạng
+    let currentRank = 1;
+    return top5.map((s, idx) => {
+      if (idx > 0 && s.roundedGPA < top5[idx - 1].roundedGPA) {
+        currentRank = idx + 1;
+      }
+      return {
+        ...s,
+        rank: currentRank,
+      };
+    });
+  }, [state.students]);
+
+  // Danh sách học sinh cần cố gắng về thi đua/nề nếp trong tháng
+  const bottomStudents = useMemo(() => {
     const baseScore = state.config.initialPoints ?? 100;
     const scores = state.students.map((student) => {
       const monthDiscipline = state.discipline.filter(
@@ -90,23 +153,14 @@ export const BoardView: React.FC<BoardViewProps> = ({
         name: student.name,
         avatar: student.avatar,
         points: summary.remainingPoints,
-        totalPlus: summary.totalPlus,
         totalMinus: summary.totalMinus,
-        netDiff: summary.netDiff,
       };
     });
 
-    const tops = [...scores]
-      .filter((s) => s.totalPlus > 0 || s.points >= baseScore)
-      .sort((a, b) => b.points - a.points)
-      .slice(0, 5);
-
-    const bots = [...scores]
+    return [...scores]
       .filter((s) => s.totalMinus > 0 || s.points < baseScore)
       .sort((a, b) => a.points - b.points)
       .slice(0, 5);
-
-    return { topStudents: tops, bottomStudents: bots };
   }, [state.students, state.discipline, selectedMonth, state.config.initialPoints]);
 
   const handleSaveNotice = (
@@ -403,10 +457,13 @@ export const BoardView: React.FC<BoardViewProps> = ({
             <div>
               <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
                 <div className="flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-amber-500" />
-                  <h4 className="font-bold text-gray-900 text-sm">
-                    Gương mặt tiêu biểu
-                  </h4>
+                  <GraduationCap className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <h4 className="font-bold text-gray-900 text-sm">
+                      TOP 5 HỌC TẬP
+                    </h4>
+                    <p className="text-[11px] text-gray-400">Điểm trung bình học tập cao nhất</p>
+                  </div>
                 </div>
                 <button
                   onClick={() => setBoardSubTab('rankings')}
@@ -416,26 +473,26 @@ export const BoardView: React.FC<BoardViewProps> = ({
                 </button>
               </div>
 
-              {topStudents.length === 0 ? (
+              {topAcademicStudents.length === 0 ? (
                 <p className="text-xs text-gray-400 italic text-center py-6">
-                  Chưa có điểm thưởng tháng này.
+                  Chưa có dữ liệu học tập để xếp hạng
                 </p>
               ) : (
                 <ul className="space-y-2">
-                  {topStudents.slice(0, 3).map((s, idx) => (
+                  {topAcademicStudents.map((s) => (
                     <li
                       key={s.id}
                       onClick={() => onSelectStudent(s.id)}
                       className="flex items-center gap-2.5 p-2 rounded-xl bg-blue-50/40 hover:bg-blue-100/50 transition-colors cursor-pointer"
                     >
-                      <div className="w-6 h-6 rounded-full bg-amber-400 text-amber-950 font-black flex items-center justify-center text-xs">
-                        {idx + 1}
+                      <div className="w-6 h-6 rounded-full bg-amber-400 text-amber-950 font-black flex items-center justify-center text-xs shrink-0 shadow-2xs">
+                        {s.rank}
                       </div>
-                      <span className="text-xs font-bold text-gray-900 uppercase flex-1 break-words leading-tight">
+                      <span className="text-xs font-bold text-gray-900 uppercase flex-1 break-words leading-tight truncate">
                         {s.name}
                       </span>
-                      <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                        Còn {s.points}đ
+                      <span className="text-xs font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 shrink-0">
+                        ĐTB: {s.gpaDisplay}
                       </span>
                     </li>
                   ))}
@@ -498,41 +555,50 @@ export const BoardView: React.FC<BoardViewProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Top 5 Khen thưởng */}
-            <div className="bg-emerald-50/40 rounded-2xl p-5 border border-emerald-100">
-              <h4 className="text-xs font-black text-emerald-800 uppercase tracking-wider mb-4 flex items-center gap-2">
-                <Award className="w-4 h-4 text-emerald-600" /> Top 5 Khen Thưởng (+ Điểm)
-              </h4>
+            {/* TOP 5 HỌC TẬP */}
+            <div className="bg-blue-50/40 rounded-2xl p-5 border border-blue-100">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-xs font-black text-blue-800 uppercase tracking-wider flex items-center gap-2">
+                  <GraduationCap className="w-4 h-4 text-blue-600" /> TOP 5 HỌC TẬP
+                </h4>
+                <span className="text-[11px] font-semibold text-blue-600 bg-blue-100/80 px-2.5 py-0.5 rounded-full">
+                  Theo Điểm trung bình (ĐTB)
+                </span>
+              </div>
 
-              {topStudents.length === 0 ? (
+              {topAcademicStudents.length === 0 ? (
                 <p className="text-xs text-gray-400 italic text-center py-8">
-                  Chưa có dữ liệu khen thưởng trong tháng này.
+                  Chưa có dữ liệu học tập để xếp hạng
                 </p>
               ) : (
                 <ul className="space-y-2.5">
-                  {topStudents.map((s, idx) => (
+                  {topAcademicStudents.map((s) => (
                     <li
                       key={s.id}
                       onClick={() => onSelectStudent(s.id)}
-                      className="flex items-center gap-3 bg-white p-3 rounded-xl border border-emerald-100 shadow-2xs hover:shadow-xs transition-shadow cursor-pointer"
+                      className="flex items-center gap-3 bg-white p-3 rounded-xl border border-blue-100 shadow-2xs hover:shadow-xs transition-shadow cursor-pointer"
                     >
-                      <div className="w-7 h-7 rounded-full bg-amber-400 text-amber-950 font-black flex items-center justify-center text-xs">
-                        {idx + 1}
+                      <div className="w-7 h-7 rounded-full bg-amber-400 text-amber-950 font-black flex items-center justify-center text-xs shrink-0 shadow-2xs">
+                        {s.rank}
                       </div>
                       <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0">
-                        {s.name.charAt(0)}
-                      </div>
-                      <span className="text-xs sm:text-sm font-bold text-gray-900 uppercase flex-1 break-words leading-tight">
-                        {s.name}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {s.totalPlus > 0 && (
-                          <span className="text-[11px] font-bold text-emerald-600 hidden sm:inline">
-                            +{s.totalPlus}đ thưởng
-                          </span>
+                        {s.avatar ? (
+                          <img src={s.avatar} alt="" className="w-full h-full object-cover rounded-lg" />
+                        ) : (
+                          s.name.charAt(0)
                         )}
-                        <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                          Còn {s.points}đ
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs sm:text-sm font-bold text-gray-900 uppercase block truncate leading-tight">
+                          {s.name}
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-mono">
+                          Mã HS: {s.id}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 shadow-2xs">
+                          ĐTB: {s.gpaDisplay}
                         </span>
                       </div>
                     </li>

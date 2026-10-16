@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   Menu,
   GraduationCap,
@@ -8,8 +8,10 @@ import {
   KeyRound,
   LogOut,
   UserCheck,
+  Camera,
 } from 'lucide-react';
 import { SyncStatus } from '../services/supabaseService';
+import { resizeImageBase64 } from '../utils/helpers';
 
 interface HeaderProps {
   title: string;
@@ -17,6 +19,8 @@ interface HeaderProps {
   teacherName: string;
   isTeacher?: boolean;
   studentName?: string;
+  classAvatar?: string;
+  onUpdateClassAvatar?: (base64: string) => void;
   syncStatus?: SyncStatus;
   onOpenMobileSidebar: () => void;
   onOpenClassSwitch: () => void;
@@ -33,6 +37,8 @@ export const Header: React.FC<HeaderProps> = ({
   teacherName,
   isTeacher = true,
   studentName,
+  classAvatar,
+  onUpdateClassAvatar,
   syncStatus,
   onOpenMobileSidebar,
   onOpenClassSwitch,
@@ -42,6 +48,18 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenMyProfile,
   onLogout,
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onUpdateClassAvatar) {
+      resizeImageBase64(file, 400, 400, (base64) => {
+        onUpdateClassAvatar(base64);
+      });
+    }
+    e.target.value = '';
+  };
+
   const teacherInitial = teacherName
     ? teacherName.trim().split(' ').pop()?.charAt(0).toUpperCase() || 'G'
     : 'G';
@@ -51,25 +69,53 @@ export const Header: React.FC<HeaderProps> = ({
     : 'H';
 
   return (
-    <header className="h-18 bg-white border-b border-gray-200 flex items-center justify-between px-3 sm:px-6 lg:px-8 shrink-0 shadow-xs z-10">
-      <div className="flex items-center gap-2.5 sm:gap-3">
+    <header className="h-16 sm:h-18 bg-white border-b border-gray-200 flex items-center justify-between px-3 sm:px-6 lg:px-8 shrink-0 shadow-xs z-10">
+      <div className="flex items-center gap-2 sm:gap-3">
         <button
           onClick={onOpenMobileSidebar}
-          className="md:hidden text-gray-500 hover:text-gray-800 p-2 -ml-2 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
+          className="md:hidden text-gray-500 hover:text-gray-800 p-2 -ml-1 sm:-ml-2 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
           aria-label="Mở menu"
         >
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* Brand Bar matching user reference mockup */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-400 via-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-xs shrink-0">
-            <GraduationCap className="w-5 h-5 text-white stroke-[2.2]" />
+        {/* Brand Bar */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div
+            onClick={() => isTeacher && onUpdateClassAvatar && fileInputRef.current?.click()}
+            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden shadow-xs relative group ${
+              isTeacher && onUpdateClassAvatar
+                ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all'
+                : ''
+            }`}
+            title={isTeacher && onUpdateClassAvatar ? 'Bấm để đổi ảnh đại diện lớp' : `Lớp ${className}`}
+          >
+            {classAvatar ? (
+              <img src={classAvatar} alt="Lớp" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-emerald-400 via-cyan-500 to-blue-600 flex items-center justify-center text-white">
+                <GraduationCap className="w-5 h-5 text-white stroke-[2.2]" />
+              </div>
+            )}
+            {isTeacher && onUpdateClassAvatar && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <Camera className="w-3.5 h-3.5 text-white" />
+              </div>
+            )}
           </div>
+          {isTeacher && onUpdateClassAvatar && (
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/jpeg, image/png, image/webp"
+              onChange={handleAvatarChange}
+            />
+          )}
 
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm sm:text-lg font-black text-slate-900 tracking-tight uppercase">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <span className="text-xs sm:text-base font-black text-slate-900 tracking-tight uppercase whitespace-nowrap">
                 TRỢ LÝ CHỦ NHIỆM
               </span>
 
@@ -77,32 +123,32 @@ export const Header: React.FC<HeaderProps> = ({
               {isTeacher ? (
                 <button
                   onClick={onOpenClassSwitch}
-                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl bg-blue-50/80 hover:bg-blue-100 text-blue-700 font-extrabold text-xs border border-blue-200/90 shadow-2xs transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-xl bg-blue-50/90 hover:bg-blue-100 active:bg-blue-200 text-blue-700 font-extrabold text-xs border border-blue-200/90 shadow-2xs transition-all cursor-pointer touch-manipulation shrink-0"
                   title="Bấm để đổi lớp hoặc năm học"
                 >
                   <span>Lớp {className}</span>
                   <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
                 </button>
               ) : (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-xl bg-blue-50 text-blue-700 font-extrabold text-xs border border-blue-200/90 shadow-2xs">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-xl bg-blue-50 text-blue-700 font-extrabold text-xs border border-blue-200/90 shadow-2xs shrink-0">
                   Lớp {className}
                 </span>
               )}
             </div>
 
             {/* Subline with role status */}
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 mt-0.5">
+            <div className="flex items-center gap-2 text-[11px] sm:text-xs font-semibold text-slate-600 mt-0.5 truncate max-w-[190px] sm:max-w-none">
               <span
                 className={`w-2 h-2 rounded-full shrink-0 ${
                   isTeacher ? 'bg-emerald-500' : 'bg-cyan-500'
                 }`}
               />
               {isTeacher ? (
-                <span>
+                <span className="truncate">
                   GVCN: <strong className="text-slate-800">{teacherName}</strong>
                 </span>
               ) : (
-                <span>
+                <span className="truncate">
                   Học sinh: <strong className="text-blue-700">{studentName || 'Đang đăng nhập'}</strong>
                 </span>
               )}

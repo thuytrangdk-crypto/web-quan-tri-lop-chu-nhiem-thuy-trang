@@ -25,7 +25,9 @@ export const ClassSwitchModal: React.FC<ClassSwitchModalProps> = ({
   const [schoolYear, setSchoolYear] = useState(currentYear);
   const [teacher, setTeacher] = useState(teacherName);
   const [classList, setClassList] = useState<string[]>(
-    availableClasses.length > 0 ? availableClasses : [currentClass, '9A5', '8A3', '7A1', '6A2']
+    availableClasses && availableClasses.length > 0
+      ? availableClasses
+      : [currentClass].filter(Boolean)
   );
 
   if (!isOpen) return null;

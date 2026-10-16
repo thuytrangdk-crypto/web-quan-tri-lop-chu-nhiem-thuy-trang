@@ -711,7 +711,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     className="px-4 py-3 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 font-bold rounded-xl text-xs sm:text-sm flex items-center gap-2.5 transition-colors cursor-pointer shadow-2xs"
                   >
                     <Sparkles className="w-4 h-4 text-amber-600" />
-                    <span>Tạo lại dữ liệu mẫu 8A3</span>
+                    <span>Tạo lại dữ liệu mẫu ban đầu</span>
                   </button>
 
                   {/* Clear all */}
@@ -828,12 +828,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <ConfirmModal
         isOpen={isResetConfirmOpen}
         title="Tạo lại dữ liệu mẫu"
-        message="Thao tác này sẽ thay thế dữ liệu hiện tại bằng dữ liệu lớp 8A3 mẫu. Bạn có chắc chắn muốn thực hiện?"
+        message="Thao tác này sẽ thay thế dữ liệu hiện tại bằng dữ liệu mẫu ban đầu. Bạn có chắc chắn muốn thực hiện?"
         confirmText="Tạo dữ liệu mẫu"
         onConfirm={() => {
           onResetData();
           setIsResetConfirmOpen(false);
-          onShowToast('Đã khôi phục dữ liệu mẫu 8A3');
+          onShowToast('Đã khôi phục dữ liệu mẫu ban đầu');
         }}
         onCancel={() => setIsResetConfirmOpen(false)}
       />

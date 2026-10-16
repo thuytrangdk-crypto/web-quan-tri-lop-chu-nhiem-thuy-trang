@@ -852,6 +852,10 @@ export default function App() {
               title={pageTitles[currentView] || 'Trợ lý chủ nhiệm'}
               className={state.config.className}
               teacherName={state.config.teacherName}
+              classAvatar={state.config.classAvatar}
+              onUpdateClassAvatar={(base64) =>
+                handleUpdateConfig({ classAvatar: base64 })
+              }
               isTeacher={authRole === 'teacher'}
               studentName={state.students.find((s) => s.id === authStudentId)?.name}
               syncStatus={syncStatus}
@@ -974,7 +978,7 @@ export default function App() {
               currentClass={state.config.className}
               currentYear={state.config.schoolYear}
               teacherName={state.config.teacherName}
-              availableClasses={state.config.availableClasses || ['9A5', '8A3', '7A1', '6A2']}
+              availableClasses={state.config.availableClasses || [state.config.className]}
               onSave={handleSaveClassSwitch}
               onClose={() => setIsClassSwitchOpen(false)}
             />

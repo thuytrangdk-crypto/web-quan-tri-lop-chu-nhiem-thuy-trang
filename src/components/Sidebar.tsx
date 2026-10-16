@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import {
   LayoutDashboard,
   Megaphone,
@@ -7,25 +7,22 @@ import {
   Settings,
   LogOut,
   X,
-  Camera,
-  ChevronDown,
   Cloud,
   KeyRound,
   UserCheck,
   Grid3X3,
 } from 'lucide-react';
-import { resizeImageBase64 } from '../utils/helpers';
 import { SyncStatus } from '../services/supabaseService';
 
 interface SidebarProps {
   currentView: string;
   onNavigate: (view: string) => void;
   className: string;
-  classAvatar: string;
+  classAvatar?: string;
   isTeacher?: boolean;
   studentName?: string;
-  onUpdateClassAvatar: (base64: string) => void;
-  onOpenClassSwitch: () => void;
+  onUpdateClassAvatar?: (base64: string) => void;
+  onOpenClassSwitch?: () => void;
   onLogout: () => void;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
@@ -52,17 +49,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenMyProfile,
   syncStatus,
 }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      resizeImageBase64(file, 400, 400, (base64) => {
-        onUpdateClassAvatar(base64);
-      });
-    }
-    e.target.value = '';
-  };
 
   const teacherNavItems = [
     { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
@@ -94,63 +80,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
           isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        {/* Header / Brand with graduation cap on green-blue gradient */}
-        <div className="h-18 flex items-center px-4 border-b border-gray-200 shrink-0 gap-3">
-          {/* Graduation Cap Logo */}
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="relative w-11 h-11 rounded-2xl flex-shrink-0 cursor-pointer overflow-hidden border border-blue-200/50 shadow-sm group hover:ring-2 hover:ring-blue-400 transition-all"
-            title="Đổi ảnh đại diện lớp hoặc bấm đổi ảnh"
-          >
-            {classAvatar ? (
-              <img
-                src={classAvatar}
-                alt="Lớp"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              /* Nón tú tài trên nền xanh lục - xanh dương gradient như ảnh mẫu */
-              <div className="w-full h-full bg-gradient-to-br from-emerald-400 via-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-inner">
-                <GraduationCap className="w-6 h-6 text-white stroke-[2.2]" />
-              </div>
-            )}
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <Camera className="w-4 h-4 text-white" />
-            </div>
-          </div>
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            accept="image/jpeg, image/png, image/webp"
-            onChange={handleAvatarChange}
-          />
-
-          <div className="flex-1 min-w-0">
-            <h1 className="text-sm font-black text-gray-900 tracking-tight uppercase truncate">
-              Trợ lý chủ nhiệm
-            </h1>
-            {/* Class Badge Button */}
-            <button
-              onClick={onOpenClassSwitch}
-              className="mt-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold border border-blue-200/80 transition-colors cursor-pointer"
-              title="Bấm để đổi lớp hoặc năm học"
-            >
-              <span>Lớp {className}</span>
-              <ChevronDown className="w-3 h-3 text-blue-500" />
-            </button>
-          </div>
-
+        {/* Mobile Drawer Header only (hidden on desktop to avoid duplicate header) */}
+        <div className="md:hidden flex items-center justify-between px-4 py-3.5 border-b border-gray-100 shrink-0 bg-gray-50/70">
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+            Menu điều hướng
+          </span>
           <button
             onClick={onCloseMobile}
-            className="md:hidden text-gray-400 hover:text-gray-700 p-1 rounded-lg"
+            className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-200/60 transition-colors cursor-pointer"
+            aria-label="Đóng menu"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Navigation list */}
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+        <nav className="flex-1 overflow-y-auto pt-3 pb-4 px-3 space-y-1 custom-scrollbar">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive =
