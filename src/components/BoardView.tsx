@@ -26,6 +26,7 @@ import {
   getCurrentMonthStr,
   triggerConfetti,
 } from '../utils/helpers';
+import { getTop5AcademicHonors } from '../utils/academicHelpers';
 import { BoardNoticeModal } from './BoardNoticeModal';
 import { ConfirmModal } from './ConfirmModal';
 import { SeatingChartView } from './SeatingChartView';
@@ -41,6 +42,7 @@ interface BoardViewProps {
   isTeacher: boolean;
   currentStudentId?: string | null;
   initialTab?: 'notices' | 'seating' | 'rankings';
+  onPublishHonors?: (month: string) => void;
   onShowToast: (msg: string, type?: 'success' | 'error') => void;
 }
 
@@ -55,6 +57,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
   isTeacher,
   currentStudentId,
   initialTab,
+  onPublishHonors,
   onShowToast,
 }) => {
   const [boardSubTab, setBoardSubTab] = useState<'notices' | 'seating' | 'rankings'>(
@@ -77,66 +80,42 @@ export const BoardView: React.FC<BoardViewProps> = ({
     return state.students.find((s) => s.id === currentStudentId) || null;
   }, [state.students, currentStudentId]);
 
-  // TOP 5 HỌC TẬP: Tính thuần túy dựa trên điểm trung bình (GPA) các môn học thực tế
+  const [selY, selM] = selectedMonth.split('-');
+  const monthDisplay = `Tháng ${Number(selM)}/${selY}`;
+
+  // Kiểm tra trạng thái công bố vinh danh Top 5 tháng này
+  const currentAnnouncement = useMemo(() => {
+    return (state.academicAnnouncements || []).find(
+      (a) =>
+        a.className === state.config.className &&
+        a.schoolYear === state.config.schoolYear &&
+        a.month === selectedMonth
+    );
+  }, [state.academicAnnouncements, state.config.className, state.config.schoolYear, selectedMonth]);
+
+  const isHonorsPublished = currentAnnouncement?.isPublished ?? false;
+
+  // TOP 5 HỌC TẬP: Dùng duy nhất điểm trung bình cộng học tập của tháng đang chọn
+  // Tối đa 5 học sinh, bằng điểm cùng thứ hạng, sắp ổn định theo mã hồ sơ
   const topAcademicStudents = useMemo(() => {
-    // 1. Chỉ lấy học sinh có ít nhất 1 đầu điểm thực tế (không coi điểm chưa nhập là 0)
-    const candidates = state.students
-      .map((student) => {
-        const grades = student.grades || {};
-        const validSubjects = Object.keys(grades).filter(
-          (sub) =>
-            typeof grades[sub] === 'number' &&
-            !isNaN(grades[sub]) &&
-            grades[sub] !== null &&
-            grades[sub] !== undefined
-        );
-
-        if (validSubjects.length === 0) {
-          // Bỏ qua học sinh chưa có điểm học tập
-          return null;
-        }
-
-        // Tái sử dụng công thức tính điểm trung bình học tập hiện có: Tổng điểm / Số môn đã có điểm
-        const total = validSubjects.reduce((acc, sub) => acc + Number(grades[sub]), 0);
-        const rawGPA = total / validSubjects.length;
-        const roundedGPA = Math.round(rawGPA * 10) / 10;
-        const gpaDisplay = roundedGPA.toFixed(1).replace('.', ',');
-
-        return {
-          id: student.id,
-          name: student.name,
-          avatar: student.avatar,
-          rawGPA,
-          roundedGPA,
-          gpaDisplay,
-          subjectCount: validSubjects.length,
-        };
-      })
-      .filter((s): s is NonNullable<typeof s> => s !== null);
-
-    // 2. Sắp xếp theo điểm học tập giảm dần. Nếu bằng điểm, sắp xếp ổn định theo mã hồ sơ (id)
-    candidates.sort((a, b) => {
-      if (b.roundedGPA !== a.roundedGPA) {
-        return b.roundedGPA - a.roundedGPA;
-      }
-      return a.id.localeCompare(b.id, 'vi');
-    });
-
-    // 3. Lấy tối đa 5 học sinh
-    const top5 = candidates.slice(0, 5);
-
-    // 4. Xếp hạng: Học sinh bằng điểm có cùng hạng
-    let currentRank = 1;
-    return top5.map((s, idx) => {
-      if (idx > 0 && s.roundedGPA < top5[idx - 1].roundedGPA) {
-        currentRank = idx + 1;
-      }
-      return {
-        ...s,
-        rank: currentRank,
-      };
-    });
-  }, [state.students]);
+    return getTop5AcademicHonors(
+      state.students,
+      state.config.className,
+      state.config.schoolYear,
+      selectedMonth,
+      state.academicGrades || [],
+      state.config.subjects || [],
+      state.config.evaluationSubjects || []
+    );
+  }, [
+    state.students,
+    state.config.className,
+    state.config.schoolYear,
+    selectedMonth,
+    state.academicGrades,
+    state.config.subjects,
+    state.config.evaluationSubjects,
+  ]);
 
   // Danh sách học sinh cần cố gắng về thi đua/nề nếp trong tháng
   const bottomStudents = useMemo(() => {
@@ -455,14 +434,27 @@ export const BoardView: React.FC<BoardViewProps> = ({
           {/* Quick Honors Widget on right */}
           <div className="bg-white rounded-3xl shadow-xs border border-gray-100 p-5 flex flex-col justify-between">
             <div>
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+              <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100">
                 <div className="flex items-center gap-2">
                   <GraduationCap className="w-5 h-5 text-blue-600" />
                   <div>
-                    <h4 className="font-bold text-gray-900 text-sm">
-                      TOP 5 HỌC TẬP
-                    </h4>
-                    <p className="text-[11px] text-gray-400">Điểm trung bình học tập cao nhất</p>
+                    <div className="flex items-center gap-1.5">
+                      <h4 className="font-bold text-gray-900 text-sm">
+                        TOP 5 HỌC TẬP
+                      </h4>
+                      <span
+                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${
+                          isHonorsPublished
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}
+                      >
+                        {isHonorsPublished ? 'Đã công bố' : 'Bản nháp'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-gray-400">
+                      {monthDisplay} • ĐTB cao nhất
+                    </p>
                   </div>
                 </div>
                 <button
@@ -473,7 +465,16 @@ export const BoardView: React.FC<BoardViewProps> = ({
                 </button>
               </div>
 
-              {topAcademicStudents.length === 0 ? (
+              {!isTeacher && !isHonorsPublished ? (
+                <div className="py-6 px-3 text-center bg-amber-50/50 rounded-2xl border border-amber-100">
+                  <p className="text-xs font-semibold text-amber-800">
+                    Bản nháp (Đang cập nhật)
+                  </p>
+                  <p className="text-[11px] text-amber-600 mt-1">
+                    Bảng xếp hạng Top 5 sẽ hiển thị sau khi GVCN công bố vinh danh.
+                  </p>
+                </div>
+              ) : topAcademicStudents.length === 0 ? (
                 <p className="text-xs text-gray-400 italic text-center py-6">
                   Chưa có dữ liệu học tập để xếp hạng
                 </p>
@@ -481,18 +482,23 @@ export const BoardView: React.FC<BoardViewProps> = ({
                 <ul className="space-y-2">
                   {topAcademicStudents.map((s) => (
                     <li
-                      key={s.id}
-                      onClick={() => onSelectStudent(s.id)}
+                      key={s.studentId}
+                      onClick={() => onSelectStudent(s.studentId)}
                       className="flex items-center gap-2.5 p-2 rounded-xl bg-blue-50/40 hover:bg-blue-100/50 transition-colors cursor-pointer"
                     >
                       <div className="w-6 h-6 rounded-full bg-amber-400 text-amber-950 font-black flex items-center justify-center text-xs shrink-0 shadow-2xs">
                         {s.rank}
                       </div>
-                      <span className="text-xs font-bold text-gray-900 uppercase flex-1 break-words leading-tight truncate">
-                        {s.name}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-bold text-gray-900 uppercase block leading-tight truncate">
+                          {s.name}
+                        </span>
+                        <span className="text-[10px] text-gray-400 block truncate">
+                          {s.validSubjectsCount} môn có điểm
+                        </span>
+                      </div>
                       <span className="text-xs font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 shrink-0">
-                        ĐTB: {s.gpaDisplay}
+                        ĐTB: {s.formattedAverage}
                       </span>
                     </li>
                   ))}
@@ -557,16 +563,50 @@ export const BoardView: React.FC<BoardViewProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* TOP 5 HỌC TẬP */}
             <div className="bg-blue-50/40 rounded-2xl p-5 border border-blue-100">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-xs font-black text-blue-800 uppercase tracking-wider flex items-center gap-2">
-                  <GraduationCap className="w-4 h-4 text-blue-600" /> TOP 5 HỌC TẬP
-                </h4>
-                <span className="text-[11px] font-semibold text-blue-600 bg-blue-100/80 px-2.5 py-0.5 rounded-full">
-                  Theo Điểm trung bình (ĐTB)
-                </span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 pb-3 border-b border-blue-100">
+                <div>
+                  <h4 className="text-xs font-black text-blue-800 uppercase tracking-wider flex items-center gap-2">
+                    <GraduationCap className="w-4 h-4 text-blue-600" /> TOP 5 HỌC TẬP
+                  </h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    {monthDisplay} • Năm học {state.config.schoolYear}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                      isHonorsPublished
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : 'bg-amber-100 text-amber-800 border-amber-300'
+                    }`}
+                  >
+                    {isHonorsPublished ? 'Đã công bố vinh danh' : 'Bản nháp'}
+                  </span>
+
+                  {isTeacher && onPublishHonors && (
+                    <button
+                      type="button"
+                      onClick={() => onPublishHonors(selectedMonth)}
+                      className="px-2.5 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold rounded-lg text-xs shadow-xs cursor-pointer flex items-center gap-1 transition-all"
+                    >
+                      <Trophy className="w-3 h-3" />
+                      <span>{isHonorsPublished ? 'Cập nhật công bố' : 'Công bố vinh danh'}</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {topAcademicStudents.length === 0 ? (
+              {!isTeacher && !isHonorsPublished ? (
+                <div className="py-10 px-4 text-center bg-amber-50/80 rounded-xl border border-amber-200">
+                  <p className="text-sm font-bold text-amber-900">
+                    Bản nháp: Bảng xếp hạng đang được GVCN tổng hợp
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    Kết quả vinh danh Top 5 của {monthDisplay} sẽ được hiển thị ngay sau khi giáo viên chủ nhiệm phê duyệt và bấm công bố.
+                  </p>
+                </div>
+              ) : topAcademicStudents.length === 0 ? (
                 <p className="text-xs text-gray-400 italic text-center py-8">
                   Chưa có dữ liệu học tập để xếp hạng
                 </p>
@@ -574,8 +614,8 @@ export const BoardView: React.FC<BoardViewProps> = ({
                 <ul className="space-y-2.5">
                   {topAcademicStudents.map((s) => (
                     <li
-                      key={s.id}
-                      onClick={() => onSelectStudent(s.id)}
+                      key={s.studentId}
+                      onClick={() => onSelectStudent(s.studentId)}
                       className="flex items-center gap-3 bg-white p-3 rounded-xl border border-blue-100 shadow-2xs hover:shadow-xs transition-shadow cursor-pointer"
                     >
                       <div className="w-7 h-7 rounded-full bg-amber-400 text-amber-950 font-black flex items-center justify-center text-xs shrink-0 shadow-2xs">
@@ -592,13 +632,17 @@ export const BoardView: React.FC<BoardViewProps> = ({
                         <span className="text-xs sm:text-sm font-bold text-gray-900 uppercase block truncate leading-tight">
                           {s.name}
                         </span>
-                        <span className="text-[10px] text-gray-400 font-mono">
-                          Mã HS: {s.id}
-                        </span>
+                        <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                          <span className="font-mono">Mã HS: {s.studentId}</span>
+                          <span>•</span>
+                          <span className="text-blue-600 font-medium">
+                            {s.validSubjectsCount} môn có điểm
+                          </span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-black text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 shadow-2xs">
-                          ĐTB: {s.gpaDisplay}
+                          ĐTB: {s.formattedAverage}
                         </span>
                       </div>
                     </li>

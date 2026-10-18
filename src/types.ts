@@ -30,6 +30,7 @@ export interface AppConfig {
   conductThresholds: ConductThresholds;
   initialPoints?: number; // Base emulation score (default: 100)
   availableClasses?: string[];
+  evaluationSubjects?: string[]; // Môn đánh giá bằng nhận xét, không tính vào ĐTB
 }
 
 export interface Student {
@@ -86,6 +87,27 @@ export interface SeatingLayout {
   seatsPerTable: number; // số ghế mỗi bàn (mặc định 2)
 }
 
+export interface MonthlyGradeRecord {
+  id: string;
+  className: string;
+  schoolYear: string;
+  month: string; // YYYY-MM
+  studentId: string;
+  subject: string;
+  score: number; // 0 to 10
+  updatedAt?: string;
+}
+
+export interface AcademicHonorsAnnouncement {
+  className: string;
+  schoolYear: string;
+  month: string; // YYYY-MM
+  isPublished: boolean; // Bản nháp (false) hoặc Đã công bố (true)
+  publishedAt?: string;
+  publishedBy?: string;
+  lastCalculatedAt?: string;
+}
+
 export interface AppState {
   config: AppConfig;
   students: Student[];
@@ -95,6 +117,8 @@ export interface AppState {
   boardNotices: BoardNotice[];
   seatingChart?: Record<string, string>; // seatKey -> studentId
   seatingLayout?: SeatingLayout;
+  academicGrades?: MonthlyGradeRecord[];
+  academicAnnouncements?: AcademicHonorsAnnouncement[];
   _syncMeta?: {
     clientId?: string;
     timestamp?: number;

@@ -8,6 +8,7 @@ import {
   SeatingLayout,
   Student,
   UserRole,
+  MonthlyGradeRecord,
 } from './types';
 import { DEFAULT_INITIAL_STATE } from './defaultData';
 import { generateId, getTodayStr } from './utils/helpers';
@@ -16,6 +17,7 @@ import { Header } from './components/Header';
 import { LoginModal } from './components/LoginModal';
 import { DashboardView } from './components/DashboardView';
 import { StudentsView } from './components/StudentsView';
+import { AcademicsView } from './components/AcademicsView';
 import { AttendanceView } from './components/AttendanceView';
 import { BoardView } from './components/BoardView';
 import { SettingsView } from './components/SettingsView';
@@ -799,11 +801,58 @@ export default function App() {
     showToast('Đã khôi phục từ bản sao lưu');
   };
 
+  // Academic Grades & Honors Handlers
+  const handleUpdateAcademicGrades = (updatedGrades: MonthlyGradeRecord[]) => {
+    updateAppState((prev) => ({
+      ...prev,
+      academicGrades: updatedGrades,
+    }));
+  };
+
+  const handlePublishAcademicHonors = (month: string) => {
+    updateAppState((prev) => {
+      const clsName = prev.config.className;
+      const yr = prev.config.schoolYear;
+      const existing = prev.academicAnnouncements || [];
+      const idx = existing.findIndex(
+        (a) => a.className === clsName && a.schoolYear === yr && a.month === month
+      );
+
+      const now = new Date().toISOString();
+      const updatedList = [...existing];
+      if (idx >= 0) {
+        updatedList[idx] = {
+          ...updatedList[idx],
+          isPublished: true,
+          publishedAt: now,
+          publishedBy: prev.config.teacherName,
+        };
+      } else {
+        updatedList.push({
+          className: clsName,
+          schoolYear: yr,
+          month,
+          isPublished: true,
+          publishedAt: now,
+          publishedBy: prev.config.teacherName,
+        });
+      }
+
+      return {
+        ...prev,
+        academicAnnouncements: updatedList,
+      };
+    });
+    const [y, m] = month.split('-');
+    showToast(`Đã công bố vinh danh Top 5 học tập Tháng ${Number(m)}/${y}!`, 'success');
+  };
+
   // Page titles
   const pageTitles: Record<string, string> = {
     dashboard: 'Tổng quan Lớp học',
     board: 'Bảng tin & Sơ đồ lớp',
     students: 'Danh sách & Quản lý Học sinh',
+    academics: 'Học tập - Bảng điểm tháng',
     attendance: 'Điểm danh Chuyên cần',
     settings: 'Cài đặt Hệ thống',
     profile: 'Hồ sơ cá nhân học sinh',
@@ -910,6 +959,21 @@ export default function App() {
                 />
               )}
 
+              {authRole === 'teacher' && currentView === 'academics' && (
+                <AcademicsView
+                  state={state}
+                  isTeacher={authRole === 'teacher'}
+                  currentStudentId={authStudentId}
+                  onUpdateAcademicGrades={handleUpdateAcademicGrades}
+                  onUpdateConfig={handleUpdateConfig}
+                  onPublishHonors={handlePublishAcademicHonors}
+                  onSelectStudent={(id) => {
+                    setSelectedStudentId(id);
+                  }}
+                  onShowToast={showToast}
+                />
+              )}
+
               {authRole === 'teacher' && currentView === 'attendance' && (
                 <AttendanceView
                   state={state}
@@ -952,6 +1016,7 @@ export default function App() {
                   }}
                   isTeacher={authRole === 'teacher'}
                   currentStudentId={authStudentId}
+                  onPublishHonors={handlePublishAcademicHonors}
                   onShowToast={showToast}
                 />
               )}

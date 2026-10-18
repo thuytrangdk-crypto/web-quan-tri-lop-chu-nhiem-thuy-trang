@@ -22,6 +22,11 @@ import {
   Clock,
   BookOpen,
   History,
+  TrendingUp,
+  BarChart3,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
 } from 'lucide-react';
 import {
   AppState,
@@ -38,6 +43,11 @@ import {
   getTodayStr,
   resizeImageBase64,
 } from '../utils/helpers';
+import {
+  calculateClassAcademicSummary,
+  getStudentAcademicHistory,
+  parseGradeValue,
+} from '../utils/academicHelpers';
 import { PrintReportModal } from './PrintReportModal';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import { ConfirmModal } from './ConfirmModal';
@@ -46,10 +56,17 @@ interface StudentProfileModalProps {
   studentId: string | null;
   state: AppState;
   isTeacher: boolean;
+  initialMonth?: string;
+  initialYear?: string;
   onClose: () => void;
   onEditStudent: (student: Student) => void;
   onUpdateAvatar: (studentId: string, base64: string) => void;
   onSaveGrades: (studentId: string, grades: Record<string, number>) => void;
+  onSaveAcademicGrades?: (
+    studentId: string,
+    month: string,
+    grades: Record<string, number | undefined>
+  ) => void;
   onAddDiscipline: (record: Omit<DisciplineRecord, 'id'>) => void;
   onDeleteDiscipline: (recordId: string) => void;
   onDeleteAttendance?: (attendanceId: string) => void;
@@ -64,10 +81,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   studentId,
   state,
   isTeacher,
+  initialMonth,
+  initialYear,
   onClose,
   onEditStudent,
   onUpdateAvatar,
   onSaveGrades,
+  onSaveAcademicGrades,
   onAddDiscipline,
   onDeleteDiscipline,
   onDeleteAttendance,
@@ -90,6 +110,24 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const [locallyDeletedDisciplineIds, setLocallyDeletedDisciplineIds] = useState<string[]>([]);
   const [locallyDeletedNoteIds, setLocallyDeletedNoteIds] = useState<string[]>([]);
 
+  // Academic month & year state
+  const [academicMonth, setAcademicMonth] = useState<string>(initialMonth || getCurrentMonthStr());
+  const [academicYear, setAcademicYear] = useState<string>(
+    initialYear || state.config.schoolYear || '2026-2027'
+  );
+
+  React.useEffect(() => {
+    if (initialMonth) {
+      setAcademicMonth(initialMonth);
+    }
+  }, [initialMonth]);
+
+  React.useEffect(() => {
+    if (initialYear) {
+      setAcademicYear(initialYear);
+    }
+  }, [initialYear]);
+
   // Direct discipline form state
   const [disDate, setDisDate] = useState(getTodayStr());
   const [disRuleId, setDisRuleId] = useState(state.config.rules[0]?.id || '');
@@ -110,14 +148,37 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     return state.students.find((s) => s.id === studentId);
   }, [state.students, studentId]);
 
-  // Sync tempGrades when student opens
+  // Sync tempGrades from state.academicGrades for the selected academicMonth & academicYear
   React.useEffect(() => {
     if (student) {
-      setTempGrades(student.grades || {});
+      const sId = (student.id || '').trim();
+      const mGrades: Record<string, number> = {};
+
+      (state.academicGrades || []).forEach((g) => {
+        const classMatch =
+          !g.className ||
+          !state.config.className ||
+          g.className.trim().toLowerCase() === state.config.className.trim().toLowerCase();
+        const yearMatch = !g.schoolYear || !academicYear || g.schoolYear.trim() === academicYear.trim();
+        const monthMatch = (g.month || '').trim() === academicMonth.trim();
+        const idMatch = (g.studentId || '').trim() === sId;
+
+        if (classMatch && yearMatch && monthMatch && idMatch) {
+          mGrades[g.subject.trim()] = g.score;
+        }
+      });
+
+      // If no monthly records yet in academicGrades, check legacy student.grades
+      if (Object.keys(mGrades).length === 0 && student.grades && Object.keys(student.grades).length > 0) {
+        setTempGrades(student.grades);
+      } else {
+        setTempGrades(mGrades);
+      }
+
       setLocallyDeletedDisciplineIds([]);
       setLocallyDeletedNoteIds([]);
     }
-  }, [student?.id]);
+  }, [student?.id, academicMonth, academicYear, state.academicGrades, state.config.className]);
 
   // Sync disRuleId when rules load or change
   React.useEffect(() => {
@@ -143,15 +204,54 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const overallPoints = overallSummary.remainingPoints;
   const overallConduct = calculateConduct(overallPoints, state.config.conductThresholds);
 
-  // GPA calculation
-  const gradeKeys = Object.keys(tempGrades);
-  const gpaStr =
-    gradeKeys.length > 0
-      ? (
-          gradeKeys.reduce((acc, k) => acc + (tempGrades[k] || 0), 0) /
-          gradeKeys.length
-        ).toFixed(1)
-      : '-';
+  // Academic summary for this student in the selected academicMonth
+  const academicSummary = useMemo(() => {
+    if (!student) return null;
+    const summaries = calculateClassAcademicSummary(
+      state.students,
+      state.config.className,
+      academicYear,
+      academicMonth,
+      state.academicGrades || [],
+      state.config.subjects || [],
+      state.config.evaluationSubjects || []
+    );
+    return summaries.find((s) => s.studentId.trim() === student.id.trim()) || null;
+  }, [
+    student,
+    state.students,
+    state.config.className,
+    academicYear,
+    academicMonth,
+    state.academicGrades,
+    state.config.subjects,
+    state.config.evaluationSubjects,
+  ]);
+
+  // Full monthly academic history for charts and trend tracking
+  const studentAcademicHistory = useMemo(() => {
+    if (!student) return [];
+    return getStudentAcademicHistory(
+      student.id,
+      state.students,
+      state.config.className,
+      academicYear,
+      state.academicGrades || [],
+      state.config.subjects || [],
+      state.config.evaluationSubjects || []
+    );
+  }, [
+    student,
+    state.students,
+    state.config.className,
+    academicYear,
+    state.academicGrades,
+    state.config.subjects,
+    state.config.evaluationSubjects,
+  ]);
+
+  // GPA calculation for display
+  const gpaStr = academicSummary?.formattedAverage || 'Chưa có điểm';
 
   // Discipline month list
   const disciplineMonths = Array.from(
@@ -197,8 +297,12 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   };
 
   const handleSaveAllGrades = () => {
-    onSaveGrades(student.id, tempGrades);
-    onShowToast('Đã lưu bảng điểm học tập');
+    if (onSaveAcademicGrades) {
+      onSaveAcademicGrades(student.id, academicMonth, tempGrades);
+    } else {
+      onSaveGrades(student.id, tempGrades as Record<string, number>);
+      onShowToast('Đã lưu bảng điểm học tập');
+    }
   };
 
   const handleSubmitDiscipline = (e: React.FormEvent) => {
@@ -650,71 +754,181 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
               )}
 
-              {/* TAB 3: HỌC TẬP */}
+              {/* TAB 3: HỌC TẬP & ĐIỂM SỐ */}
               {activeTab === 'grades' && (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <div>
-                      <h3 className="text-sm font-bold text-gray-800">
-                        Bảng điểm trung bình các môn học
-                      </h3>
-                      <p className="text-xs text-gray-400">
-                        {isTeacher
-                          ? 'Nhập trực tiếp điểm số và bấm "Lưu điểm"'
-                          : 'Điểm số do giáo viên chủ nhiệm cập nhật'}
-                      </p>
+                <div className="space-y-6">
+                  {/* Month & Year Selection Bar */}
+                  <div className="bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-cyan-50/90 p-4 rounded-2xl border border-blue-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-200 shrink-0">
+                        <BookOpen className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-bold text-gray-900 text-sm">
+                            Điểm Học Tập Theo Tháng
+                          </h4>
+                          <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 border border-blue-200">
+                            Lớp {state.config.className}
+                          </span>
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                            Năm học {academicYear}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-gray-500 mt-0.5">
+                          Dữ liệu điểm chi tiết đồng bộ trực tiếp với Bảng điểm cả lớp và Top 5 vinh danh
+                        </p>
+                      </div>
                     </div>
 
-                    {isTeacher && (
-                      <button
-                        onClick={handleSaveAllGrades}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Save className="w-4 h-4" />
-                        <span>Lưu điểm</span>
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-start">
+                      {/* Month selector */}
+                      <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-blue-300 shadow-2xs">
+                        <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+                        <input
+                          type="month"
+                          value={academicMonth}
+                          onChange={(e) => {
+                            if (e.target.value) setAcademicMonth(e.target.value);
+                          }}
+                          className="bg-transparent text-xs font-black text-gray-800 outline-none cursor-pointer"
+                        />
+                      </div>
+
+                      {isTeacher && (
+                        <button
+                          type="button"
+                          onClick={handleSaveAllGrades}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md flex items-center gap-1.5 cursor-pointer transition-all shrink-0"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          <span>Lưu điểm</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="border border-gray-200 rounded-2xl overflow-hidden">
+                  {/* Month Summary Stats Card */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-2xl flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block mb-0.5">
+                          Trung bình cộng (ĐTB)
+                        </span>
+                        <div className="text-xl font-black text-blue-900">
+                          {academicSummary?.formattedAverage || 'Chưa có điểm'}
+                        </div>
+                        <span className="text-[10px] text-gray-400">
+                          Tháng {academicMonth.split('-')[1]}/{academicMonth.split('-')[0]}
+                        </span>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                        <GraduationCap className="w-5 h-5" />
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block mb-0.5">
+                          Số môn đã có điểm
+                        </span>
+                        <div className="text-xl font-black text-emerald-900">
+                          {academicSummary?.validSubjectsCount || 0} / {state.config.subjects.length} môn
+                        </div>
+                        <span className="text-[10px] text-gray-400">
+                          {state.config.subjects.length - (academicSummary?.validSubjectsCount || 0) === 0
+                            ? 'Đủ tất cả các môn'
+                            : `Còn thiếu ${state.config.subjects.length - (academicSummary?.validSubjectsCount || 0)} môn`}
+                        </span>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                        <Check className="w-5 h-5" />
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-2xl flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider block mb-0.5">
+                          Xếp hạng trong lớp
+                        </span>
+                        <div className="text-xl font-black text-amber-900">
+                          {academicSummary?.rank !== null && academicSummary?.rank !== undefined
+                            ? `Hạng ${academicSummary.rank} / ${state.students.length}`
+                            : 'Chưa có hạng'}
+                        </div>
+                        <span className="text-[10px] text-gray-400">
+                          Bằng điểm cùng thứ hạng
+                        </span>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                        <Star className="w-5 h-5" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subject Grades Table */}
+                  <div className="border border-gray-200 rounded-2xl overflow-hidden shadow-2xs">
                     <table className="w-full text-left text-xs sm:text-sm">
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
+                          <th className="px-4 py-3 font-bold text-gray-600 w-12 text-center">STT</th>
                           <th className="px-4 py-3 font-bold text-gray-600">Môn học</th>
                           <th className="px-4 py-3 font-bold text-gray-600 text-center w-36">
-                            Điểm TB môn
+                            Điểm số (Tháng {academicMonth.split('-')[1]}/{academicMonth.split('-')[0]})
+                          </th>
+                          <th className="px-4 py-3 font-bold text-gray-600 text-center w-44">
+                            Loại đánh giá
                           </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 bg-white">
-                        {state.config.subjects.map((sub) => {
+                        {state.config.subjects.map((sub, idx) => {
+                          const isEval = (state.config.evaluationSubjects || []).includes(sub);
                           const val = tempGrades[sub];
                           return (
-                            <tr key={sub} className="hover:bg-gray-50">
-                              <td className="px-4 py-3 font-bold text-gray-800">{sub}</td>
-                              <td className="px-4 py-2.5 text-center">
+                            <tr key={sub} className="hover:bg-gray-50/70 transition-colors">
+                              <td className="px-4 py-3 text-center text-gray-400 font-bold text-xs">
+                                {idx + 1}
+                              </td>
+                              <td className="px-4 py-3 font-bold text-gray-800">
+                                {sub}
+                              </td>
+                              <td className="px-4 py-2 text-center">
                                 {isTeacher ? (
                                   <input
-                                    type="number"
-                                    min="0"
-                                    max="10"
-                                    step="0.1"
-                                    value={val !== undefined ? val : ''}
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={val !== undefined ? String(val) : ''}
                                     onChange={(e) => {
-                                      const n = parseFloat(e.target.value);
+                                      const text = e.target.value;
+                                      const parsed = parseGradeValue(text);
                                       setTempGrades((prev) => {
                                         const next = { ...prev };
-                                        if (isNaN(n)) delete next[sub];
-                                        else next[sub] = n;
+                                        if (parsed.isValid && parsed.score !== undefined) {
+                                          next[sub] = parsed.score;
+                                        } else if (text.trim() === '') {
+                                          delete next[sub];
+                                        }
                                         return next;
                                       });
                                     }}
-                                    className="w-24 px-2 py-1.5 border border-gray-300 rounded-lg text-center font-bold text-blue-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                                    className="w-24 px-2 py-1.5 border border-gray-300 focus:border-blue-500 rounded-lg text-center font-black text-blue-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-xs sm:text-sm"
                                     placeholder="-"
                                   />
                                 ) : (
-                                  <span className="font-bold text-blue-700 text-sm">
+                                  <span className="font-black text-blue-700 text-sm">
                                     {val !== undefined ? val : '-'}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2 text-center">
+                                {isEval ? (
+                                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                    Nhận xét (không tính ĐTB)
+                                  </span>
+                                ) : (
+                                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                    Tính điểm (0 - 10)
                                   </span>
                                 )}
                               </td>
@@ -725,11 +939,81 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     </table>
                   </div>
 
-                  <div className="p-4 bg-emerald-50/60 border border-emerald-100 rounded-2xl flex items-center justify-between">
-                    <span className="text-xs font-bold text-emerald-800 uppercase">
-                      Điểm trung bình chung (GPA):
-                    </span>
-                    <span className="text-xl font-black text-emerald-700">{gpaStr}</span>
+                  {/* LỊCH SỬ ĐIỂM CÁC THÁNG & BIỂU ĐỒ THEO DÕI TIẾN ĐỘ */}
+                  <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-2xs space-y-4">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-blue-600" />
+                        <h4 className="text-xs sm:text-sm font-bold text-gray-900 uppercase tracking-wide">
+                          Lịch Sử &amp; Biểu Đồ Điểm Trung Bình Các Tháng
+                        </h4>
+                      </div>
+                      <span className="text-[11px] text-gray-400">
+                        {studentAcademicHistory.filter((h) => h.rawAverage !== null).length} tháng có dữ liệu
+                      </span>
+                    </div>
+
+                    {/* Biểu đồ tiến độ ĐTB */}
+                    <div className="bg-gray-50/70 p-4 rounded-xl border border-gray-100">
+                      <div className="text-[11px] font-bold text-gray-500 mb-3 flex items-center gap-1.5">
+                        <BarChart3 className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Biểu đồ so sánh điểm trung bình cộng (Thang điểm 0 - 10):</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                        {studentAcademicHistory.map((hist) => {
+                          const hasScore = hist.rawAverage !== null;
+                          const pct = hasScore ? Math.min(100, Math.max(0, (hist.rawAverage! / 10) * 100)) : 0;
+                          const isSelected = hist.month === academicMonth;
+
+                          return (
+                            <div
+                              key={hist.month}
+                              onClick={() => setAcademicMonth(hist.month)}
+                              className={`p-3 rounded-xl border text-center transition-all cursor-pointer flex flex-col justify-between ${
+                                isSelected
+                                  ? 'bg-blue-50 border-blue-500 shadow-xs ring-2 ring-blue-400/20'
+                                  : 'bg-white border-gray-200 hover:border-blue-300 hover:bg-blue-50/30'
+                              }`}
+                            >
+                              <div className="text-[11px] font-extrabold text-gray-700">
+                                {hist.monthDisplay}
+                              </div>
+
+                              {/* Bar indicator */}
+                              <div className="my-2.5 h-16 flex items-end justify-center bg-gray-100 rounded-lg p-1 overflow-hidden">
+                                {hasScore ? (
+                                  <div
+                                    style={{ height: `${pct}%` }}
+                                    className={`w-full rounded-md transition-all ${
+                                      hist.rawAverage! >= 8.0
+                                        ? 'bg-emerald-500'
+                                        : hist.rawAverage! >= 6.5
+                                        ? 'bg-blue-500'
+                                        : hist.rawAverage! >= 5.0
+                                        ? 'bg-amber-500'
+                                        : 'bg-red-500'
+                                    }`}
+                                    title={`ĐTB: ${hist.formattedAverage}`}
+                                  />
+                                ) : (
+                                  <span className="text-[9px] text-gray-400 italic">Trống</span>
+                                )}
+                              </div>
+
+                              <div>
+                                <div className={`text-xs font-black ${hasScore ? 'text-blue-700' : 'text-gray-400'}`}>
+                                  {hasScore ? `ĐTB: ${hist.formattedAverage}` : 'Chưa có'}
+                                </div>
+                                <div className="text-[10px] text-gray-400 mt-0.5">
+                                  {hist.validCount} môn
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

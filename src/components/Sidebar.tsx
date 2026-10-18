@@ -11,6 +11,7 @@ import {
   KeyRound,
   UserCheck,
   Grid3X3,
+  BookOpen,
 } from 'lucide-react';
 import { SyncStatus } from '../services/supabaseService';
 
@@ -54,6 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
     { id: 'board', label: 'Bảng tin & Sơ đồ lớp', icon: Megaphone },
     { id: 'students', label: 'Học sinh', icon: GraduationCap },
+    { id: 'academics', label: 'Học tập', icon: BookOpen },
     { id: 'attendance', label: 'Điểm danh', icon: CalendarCheck2 },
   ];
 
