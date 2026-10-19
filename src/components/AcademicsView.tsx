@@ -30,7 +30,7 @@ import {
 import { getCurrentMonthStr, formatDisplayDate } from '../utils/helpers';
 import { ExcelAcademicImportModal } from './ExcelAcademicImportModal';
 import { SubjectConfigModal } from './SubjectConfigModal';
-import { DeleteMonthlyGradesModal } from './DeleteMonthlyGradesModal';
+import { DeleteMonthlyGradesModal, DeleteGradesStatus } from './DeleteMonthlyGradesModal';
 import { RestoreAcademicGradesModal } from './RestoreAcademicGradesModal';
 
 interface AcademicsViewProps {
@@ -41,7 +41,10 @@ interface AcademicsViewProps {
   onUpdateConfig: (newConfig: Partial<AppState['config']>) => void;
   onPublishHonors?: (month: string) => void;
   onSelectStudent?: (studentId: string, month?: string) => void;
-  onDeleteMonthlyGrades?: (month: string) => Promise<{ success: boolean; error?: string }>;
+  onDeleteMonthlyGrades?: (
+    month: string,
+    onProgress?: (step: 'backing_up' | 'deleting') => void
+  ) => Promise<{ success: boolean; error?: string }>;
   onRestoreMonthlyGrades?: (backup: AcademicGradeBackup) => Promise<{ success: boolean; error?: string }>;
   onShowToast?: (msg: string, type?: 'success' | 'error') => void;
 }
@@ -102,7 +105,8 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteStatus, setDeleteStatus] = useState<DeleteGradesStatus>('idle');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Direct editing buffer: studentId -> subject -> score
   const [editGradesBuffer, setEditGradesBuffer] = useState<
@@ -306,19 +310,29 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   }, [backupsForClass, selectedMonth]);
 
   const handleConfirmDelete = async () => {
-    if (!onDeleteMonthlyGrades) return;
-    setIsDeleting(true);
+    if (!onDeleteMonthlyGrades) {
+      setDeleteError('Chức năng xóa chưa được kết nối.');
+      return;
+    }
+    setDeleteError(null);
+    setDeleteStatus('backing_up');
     try {
-      const res = await onDeleteMonthlyGrades(selectedMonth);
+      const res = await onDeleteMonthlyGrades(selectedMonth, (step) => {
+        setDeleteStatus(step);
+      });
       if (res.success) {
         setEditGradesBuffer({});
         setHasUnsavedChanges(false);
         setIsDeleteModalOpen(false);
+        setDeleteStatus('idle');
+        setDeleteError(null);
       } else {
-        onShowToast?.(res.error || 'Xóa bảng điểm thất bại', 'error');
+        setDeleteError(res.error || 'Xóa bảng điểm thất bại. Vui lòng thử lại.');
+        setDeleteStatus('idle');
       }
-    } finally {
-      setIsDeleting(false);
+    } catch (err: any) {
+      setDeleteError(err.message || 'Lỗi không xác định khi thực hiện xóa.');
+      setDeleteStatus('idle');
     }
   };
 
@@ -549,7 +563,11 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
               <button
                 type="button"
                 disabled={!hasGradesInSelectedMonth}
-                onClick={() => setIsDeleteModalOpen(true)}
+                onClick={() => {
+                  setDeleteError(null);
+                  setDeleteStatus('idle');
+                  setIsDeleteModalOpen(true);
+                }}
                 className={`px-2.5 py-1.5 font-bold rounded-lg text-[11px] border flex items-center gap-1 transition-colors ${
                   hasGradesInSelectedMonth
                     ? 'bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-700 border-red-200 cursor-pointer'
@@ -841,9 +859,15 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
         month={selectedMonth}
         studentCount={gradedStudentsCount}
         totalGradesCount={gradesInSelectedMonth.length}
-        isDeleting={isDeleting}
+        status={deleteStatus}
+        errorMessage={deleteError}
         onConfirmDelete={handleConfirmDelete}
-        onClose={() => setIsDeleteModalOpen(false)}
+        onClose={() => {
+          if (deleteStatus === 'idle') {
+            setIsDeleteModalOpen(false);
+            setDeleteError(null);
+          }
+        }}
       />
 
       {/* Restore Academic Grades Modal */}

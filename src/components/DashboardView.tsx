@@ -99,22 +99,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     .slice(0, 8);
 
   return (
-    <div className="space-y-3 sm:space-y-3.5 max-w-7xl mx-auto pb-4 animate-fadeIn">
-      {/* 1. Welcome Banner: Compact Blue Ocean Gradient (100-120px) */}
-      <div className="bg-gradient-to-r from-blue-600 via-sky-600 to-cyan-600 rounded-2xl p-4 sm:p-5 text-white shadow-sm relative overflow-hidden shrink-0">
+    <div className="space-y-2.5 sm:space-y-3 max-w-7xl mx-auto pb-3 animate-fadeIn">
+      {/* 1. Welcome Banner: Compact Blue Ocean Gradient (100-115px) */}
+      <div className="bg-gradient-to-r from-blue-600 via-sky-600 to-cyan-600 rounded-xl p-3 sm:p-4 text-white shadow-sm relative overflow-hidden shrink-0">
         <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-white/10 transform skew-x-12 pointer-events-none" />
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight truncate leading-tight">
+            <h1 className="text-lg sm:text-xl font-black tracking-tight truncate leading-tight">
               Trợ Lý Chủ Nhiệm • Lớp {state.config.className}
             </h1>
-            <p className="text-blue-50 text-xs sm:text-sm mt-1 font-medium truncate flex items-center gap-1.5 flex-wrap">
+            <p className="text-blue-50 text-xs sm:text-sm mt-0.5 font-medium truncate flex items-center gap-1.5 flex-wrap">
               <span>Giáo viên chủ nhiệm:</span>
               <strong className="text-white font-bold">{state.config.teacherName || 'Chưa thiết lập'}</strong>
             </p>
           </div>
           <div className="shrink-0 self-start sm:self-center">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 backdrop-blur-md rounded-xl text-xs font-bold text-white border border-white/20 shadow-2xs whitespace-nowrap">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-white/20 backdrop-blur-md rounded-lg text-xs font-bold text-white border border-white/20 shadow-2xs whitespace-nowrap">
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
               <span>Năm học {state.config.schoolYear}</span>
             </span>
@@ -122,108 +122,108 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* 2. 4 Stats Grid: Compact 100-120px cards, 4 equal cards on desktop, 2x2 on mobile */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      {/* 2. 4 Stats Grid: 4 cards in 1 row on desktop, 2x2 on mobile, height 90-105px, padding 12px, gap 12px */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Card 1: Sĩ số lớp */}
         <div
           onClick={() => onNavigate('students')}
-          className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-2xs border border-gray-100 hover:shadow-xs hover:border-blue-200 transition-all cursor-pointer group flex flex-col justify-between"
+          className="bg-white p-3 rounded-xl shadow-2xs border border-gray-100 hover:shadow-xs hover:border-blue-200 transition-all cursor-pointer group flex flex-col justify-between h-[94px] sm:h-[98px]"
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-1">
             <span className="text-gray-500 font-bold text-xs sm:text-[13px] uppercase tracking-wider truncate">
               Sĩ số lớp
             </span>
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <Users className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <Users className="w-4 h-4" />
             </div>
           </div>
-          <div className="my-0.5">
-            <p className="text-2xl sm:text-[28px] font-black text-gray-900 tracking-tight leading-tight">
+          <div className="mt-0.5">
+            <p className="text-2xl sm:text-[26px] font-black text-gray-900 leading-none tracking-tight">
               {totalStudents}
             </p>
+            <p className="text-[11px] sm:text-xs text-gray-500 font-medium truncate mt-1">
+              <span className="text-blue-600 font-bold">{maleCount}</span> Nam ·{' '}
+              <span className="text-pink-600 font-bold">{femaleCount}</span> Nữ
+            </p>
           </div>
-          <p className="text-[11px] sm:text-xs text-gray-500 font-medium truncate">
-            <span className="text-blue-600 font-bold">{maleCount}</span> Nam ·{' '}
-            <span className="text-pink-600 font-bold">{femaleCount}</span> Nữ
-          </p>
         </div>
 
         {/* Card 2: Vắng (Hôm nay) */}
         <div
           onClick={() => onNavigate('attendance')}
-          className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-2xs border border-gray-100 hover:shadow-xs hover:border-red-200 transition-all cursor-pointer group flex flex-col justify-between"
+          className="bg-white p-3 rounded-xl shadow-2xs border border-gray-100 hover:shadow-xs hover:border-red-200 transition-all cursor-pointer group flex flex-col justify-between h-[94px] sm:h-[98px]"
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-1">
             <span className="text-gray-500 font-bold text-xs sm:text-[13px] uppercase tracking-wider truncate">
               Vắng (Hôm nay)
             </span>
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <UserX className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <UserX className="w-4 h-4" />
             </div>
           </div>
-          <div className="my-0.5">
-            <p className="text-2xl sm:text-[28px] font-black text-gray-900 tracking-tight leading-tight">
+          <div className="mt-0.5">
+            <p className="text-2xl sm:text-[26px] font-black text-gray-900 leading-none tracking-tight">
               {absentToday}
             </p>
+            <p className="text-[11px] sm:text-xs text-gray-500 font-medium truncate mt-1">
+              {absentToday === 0 ? (
+                <span className="text-emerald-600 font-bold">Đi học đầy đủ 100%</span>
+              ) : (
+                <span className="text-red-500 font-bold">Cần kiểm tra lý do</span>
+              )}
+            </p>
           </div>
-          <p className="text-[11px] sm:text-xs text-gray-500 font-medium truncate">
-            {absentToday === 0 ? (
-              <span className="text-emerald-600 font-bold">Đi học đầy đủ 100%</span>
-            ) : (
-              <span className="text-red-500 font-bold">Cần kiểm tra lý do</span>
-            )}
-          </p>
         </div>
 
         {/* Card 3: Vi phạm (Tuần) */}
         <div
           onClick={() => onNavigate('board')}
-          className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-2xs border border-gray-100 hover:shadow-xs hover:border-amber-200 transition-all cursor-pointer group flex flex-col justify-between"
+          className="bg-white p-3 rounded-xl shadow-2xs border border-gray-100 hover:shadow-xs hover:border-amber-200 transition-all cursor-pointer group flex flex-col justify-between h-[94px] sm:h-[98px]"
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-1">
             <span className="text-gray-500 font-bold text-xs sm:text-[13px] uppercase tracking-wider truncate">
               Vi phạm (Tuần)
             </span>
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <AlertTriangle className="w-4 h-4" />
             </div>
           </div>
-          <div className="my-0.5">
-            <p className="text-2xl sm:text-[28px] font-black text-gray-900 tracking-tight leading-tight">
+          <div className="mt-0.5">
+            <p className="text-2xl sm:text-[26px] font-black text-gray-900 leading-none tracking-tight">
               {violationsWeek}
             </p>
+            <p className="text-[11px] sm:text-xs text-gray-500 font-medium truncate mt-1">
+              Lượt trừ điểm nề nếp
+            </p>
           </div>
-          <p className="text-[11px] sm:text-xs text-gray-500 font-medium truncate">
-            Lượt trừ điểm nề nếp
-          </p>
         </div>
 
         {/* Card 4: Khen thưởng */}
         <div
           onClick={() => onNavigate('board')}
-          className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-2xs border border-gray-100 hover:shadow-xs hover:border-emerald-200 transition-all cursor-pointer group flex flex-col justify-between"
+          className="bg-white p-3 rounded-xl shadow-2xs border border-gray-100 hover:shadow-xs hover:border-emerald-200 transition-all cursor-pointer group flex flex-col justify-between h-[94px] sm:h-[98px]"
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-1">
             <span className="text-gray-500 font-bold text-xs sm:text-[13px] uppercase tracking-wider truncate">
               Khen thưởng
             </span>
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <Award className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <Award className="w-4 h-4" />
             </div>
           </div>
-          <div className="my-0.5">
-            <p className="text-2xl sm:text-[28px] font-black text-gray-900 tracking-tight leading-tight">
+          <div className="mt-0.5">
+            <p className="text-2xl sm:text-[26px] font-black text-gray-900 leading-none tracking-tight">
               {rewardsWeek}
             </p>
+            <p className="text-[11px] sm:text-xs text-emerald-600 font-bold truncate mt-1">
+              Lượt cộng điểm gương mẫu
+            </p>
           </div>
-          <p className="text-[11px] sm:text-xs text-emerald-600 font-bold truncate">
-            Lượt cộng điểm gương mẫu
-          </p>
         </div>
       </div>
 
       {/* 3. Two Main Columns: Side-by-side on desktop, vertical on mobile */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Left: Học sinh cần chú ý (Teacher) or Góc học tập (Student) */}
         {isTeacher ? (
           <div className="bg-white rounded-2xl shadow-2xs border border-gray-100 overflow-hidden flex flex-col">

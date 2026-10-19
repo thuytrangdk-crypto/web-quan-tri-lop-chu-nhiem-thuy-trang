@@ -132,10 +132,12 @@ export const supabaseService = {
   // Perform safe deletion with prerequisite backup on Supabase
   async deleteMonthlyAcademicGrades(
     backup: import('../types').AcademicGradeBackup,
-    updatedState: AppState
+    updatedState: AppState,
+    onProgress?: (step: 'backing_up' | 'deleting') => void
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // 1. Mandatory prerequisite: Backup MUST succeed first
+      onProgress?.('backing_up');
       const backupRes = await this.createAcademicBackup(backup);
       if (!backupRes.success) {
         return {
@@ -145,6 +147,7 @@ export const supabaseService = {
       }
 
       // 2. Save updated state atomically to Supabase
+      onProgress?.('deleting');
       const saveRes = await this.saveState(updatedState);
       if (!saveRes.success) {
         return {

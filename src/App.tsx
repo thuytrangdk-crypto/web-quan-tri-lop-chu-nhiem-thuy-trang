@@ -862,19 +862,22 @@ export default function App() {
   };
 
   const handleDeleteMonthlyGrades = async (
-    month: string
+    month: string,
+    onProgress?: (step: 'backing_up' | 'deleting') => void
   ): Promise<{ success: boolean; error?: string }> => {
     if (authRole !== 'teacher') {
       return { success: false, error: 'Chỉ giáo viên mới có quyền xóa bảng điểm tháng.' };
     }
 
-    const clsName = state.config.className;
-    const yr = state.config.schoolYear;
+    // Use latestStateRef to avoid stale closure state
+    const currentState = latestStateRef.current;
+    const clsName = (currentState.config.className || '').trim();
+    const yr = (currentState.config.schoolYear || '').trim();
 
-    const gradesToDelete = (state.academicGrades || []).filter(
+    const gradesToDelete = (currentState.academicGrades || []).filter(
       (g) =>
-        (!g.className || g.className === clsName) &&
-        (!g.schoolYear || g.schoolYear === yr) &&
+        (!g.className || g.className.trim().toLowerCase() === clsName.toLowerCase()) &&
+        (!g.schoolYear || g.schoolYear.trim().toLowerCase() === yr.toLowerCase()) &&
         g.month === month
     );
 
@@ -882,8 +885,11 @@ export default function App() {
       return { success: false, error: 'Không tìm thấy dữ liệu điểm của tháng này để xóa.' };
     }
 
-    const existingAnnouncement = (state.academicAnnouncements || []).find(
-      (a) => a.className === clsName && a.schoolYear === yr && a.month === month
+    const existingAnnouncement = (currentState.academicAnnouncements || []).find(
+      (a) =>
+        (!a.className || a.className.trim().toLowerCase() === clsName.toLowerCase()) &&
+        (!a.schoolYear || a.schoolYear.trim().toLowerCase() === yr.toLowerCase()) &&
+        a.month === month
     );
 
     // Create Backup object
@@ -893,7 +899,7 @@ export default function App() {
       schoolYear: yr,
       month,
       createdAt: new Date().toISOString(),
-      createdBy: state.config.teacherName || 'Giáo viên',
+      createdBy: currentState.config.teacherName || 'Giáo viên',
       studentCount: new Set(gradesToDelete.map((g) => g.studentId)).size,
       totalGradesCount: gradesToDelete.length,
       grades: gradesToDelete,
@@ -901,25 +907,30 @@ export default function App() {
     };
 
     // Filter out grades for this class, year, and month
-    const remainingGrades = (state.academicGrades || []).filter(
+    const remainingGrades = (currentState.academicGrades || []).filter(
       (g) =>
         !(
-          (!g.className || g.className === clsName) &&
-          (!g.schoolYear || g.schoolYear === yr) &&
+          (!g.className || g.className.trim().toLowerCase() === clsName.toLowerCase()) &&
+          (!g.schoolYear || g.schoolYear.trim().toLowerCase() === yr.toLowerCase()) &&
           g.month === month
         )
     );
 
     // Update announcement for this month: remove published status so it reverts to draft/unpublished
-    const updatedAnnouncements = (state.academicAnnouncements || []).filter(
-      (a) => !(a.className === clsName && a.schoolYear === yr && a.month === month)
+    const updatedAnnouncements = (currentState.academicAnnouncements || []).filter(
+      (a) =>
+        !(
+          (!a.className || a.className.trim().toLowerCase() === clsName.toLowerCase()) &&
+          (!a.schoolYear || a.schoolYear.trim().toLowerCase() === yr.toLowerCase()) &&
+          a.month === month
+        )
     );
 
     // Add backup to state.academicBackups (keep latest 30 backups)
-    const updatedBackups = [backup, ...(state.academicBackups || [])].slice(0, 30);
+    const updatedBackups = [backup, ...(currentState.academicBackups || [])].slice(0, 30);
 
     const nextState: AppState = {
-      ...state,
+      ...currentState,
       academicGrades: remainingGrades,
       academicAnnouncements: updatedAnnouncements,
       academicBackups: updatedBackups,
@@ -930,7 +941,7 @@ export default function App() {
     };
 
     // Execute atomic delete with prerequisite backup on Supabase
-    const res = await supabaseService.deleteMonthlyAcademicGrades(backup, nextState);
+    const res = await supabaseService.deleteMonthlyAcademicGrades(backup, nextState, onProgress);
     if (!res.success) {
       return { success: false, error: res.error };
     }
@@ -941,6 +952,20 @@ export default function App() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
     } catch (e) {}
+
+    // Verify by reading back from Supabase
+    try {
+      const verifyRes = await supabaseService.loadState();
+      if (verifyRes.state) {
+        latestStateRef.current = verifyRes.state;
+        setState(verifyRes.state);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(verifyRes.state));
+        } catch (e) {}
+      }
+    } catch (e) {
+      // Non-fatal if fetch verification times out, local state is already saved
+    }
 
     const [y, m] = month.split('-');
     showToast(`Đã xóa bảng điểm Tháng ${Number(m)}/${y} và tạo bản sao lưu an toàn!`, 'success');
@@ -1184,6 +1209,8 @@ export default function App() {
                   onUpdateConfig={handleUpdateConfig}
                   onPublishHonors={handlePublishAcademicHonors}
                   onSelectStudent={(id, month) => handleOpenStudentProfile(id, month)}
+                  onDeleteMonthlyGrades={handleDeleteMonthlyGrades}
+                  onRestoreMonthlyGrades={handleRestoreMonthlyGrades}
                   onShowToast={showToast}
                 />
               )}
