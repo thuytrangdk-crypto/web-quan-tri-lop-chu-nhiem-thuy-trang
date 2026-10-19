@@ -118,8 +118,8 @@ export const calculateClassAcademicSummary = (
       const cleanSub = sub.trim();
       if (studentGrades[cleanSub] !== undefined) {
         effectiveGrades[cleanSub] = studentGrades[cleanSub];
-      } else if (student.grades && student.grades[cleanSub] !== undefined && studentGrades[cleanSub] === undefined) {
-        // Fallback for initial un-migrated state
+      } else if (student.grades && student.grades[cleanSub] !== undefined && studentGrades[cleanSub] === undefined && allGrades.length === 0) {
+        // Fallback for initial un-migrated state only
         effectiveGrades[cleanSub] = student.grades[cleanSub];
       } else {
         effectiveGrades[cleanSub] = undefined;

@@ -15,8 +15,10 @@ import {
   ChevronRight,
   Sparkles,
   Info,
+  Trash2,
+  RotateCcw,
 } from 'lucide-react';
-import { AppState, MonthlyGradeRecord } from '../types';
+import { AppState, MonthlyGradeRecord, AcademicGradeBackup } from '../types';
 import {
   calculateClassAcademicSummary,
   downloadAcademicExcelTemplate,
@@ -28,6 +30,8 @@ import {
 import { getCurrentMonthStr, formatDisplayDate } from '../utils/helpers';
 import { ExcelAcademicImportModal } from './ExcelAcademicImportModal';
 import { SubjectConfigModal } from './SubjectConfigModal';
+import { DeleteMonthlyGradesModal } from './DeleteMonthlyGradesModal';
+import { RestoreAcademicGradesModal } from './RestoreAcademicGradesModal';
 
 interface AcademicsViewProps {
   state: AppState;
@@ -37,6 +41,8 @@ interface AcademicsViewProps {
   onUpdateConfig: (newConfig: Partial<AppState['config']>) => void;
   onPublishHonors?: (month: string) => void;
   onSelectStudent?: (studentId: string, month?: string) => void;
+  onDeleteMonthlyGrades?: (month: string) => Promise<{ success: boolean; error?: string }>;
+  onRestoreMonthlyGrades?: (backup: AcademicGradeBackup) => Promise<{ success: boolean; error?: string }>;
   onShowToast?: (msg: string, type?: 'success' | 'error') => void;
 }
 
@@ -48,6 +54,8 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   onUpdateConfig,
   onPublishHonors,
   onSelectStudent,
+  onDeleteMonthlyGrades,
+  onRestoreMonthlyGrades,
   onShowToast,
 }) => {
   const currentMonth = getCurrentMonthStr();
@@ -92,6 +100,9 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   // Modals
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Direct editing buffer: studentId -> subject -> score
   const [editGradesBuffer, setEditGradesBuffer] = useState<
@@ -265,6 +276,67 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
     setHasUnsavedChanges(false);
   };
 
+  // Grades present specifically in the selected month
+  const gradesInSelectedMonth = useMemo(() => {
+    return (effectiveGrades || []).filter(
+      (g) =>
+        (!g.className || g.className === className) &&
+        (!g.schoolYear || g.schoolYear === schoolYear) &&
+        g.month === selectedMonth
+    );
+  }, [effectiveGrades, className, schoolYear, selectedMonth]);
+
+  const hasGradesInSelectedMonth = gradesInSelectedMonth.length > 0;
+
+  const gradedStudentsCount = useMemo(() => {
+    return new Set(gradesInSelectedMonth.map((g) => g.studentId)).size;
+  }, [gradesInSelectedMonth]);
+
+  // Backups available for this class
+  const backupsForClass = useMemo(() => {
+    return (state.academicBackups || []).filter(
+      (b) =>
+        (!b.className || b.className.trim().toLowerCase() === className.trim().toLowerCase()) &&
+        (!b.schoolYear || b.schoolYear === schoolYear)
+    );
+  }, [state.academicBackups, className, schoolYear]);
+
+  const backupsForMonth = useMemo(() => {
+    return backupsForClass.filter((b) => b.month === selectedMonth);
+  }, [backupsForClass, selectedMonth]);
+
+  const handleConfirmDelete = async () => {
+    if (!onDeleteMonthlyGrades) return;
+    setIsDeleting(true);
+    try {
+      const res = await onDeleteMonthlyGrades(selectedMonth);
+      if (res.success) {
+        setEditGradesBuffer({});
+        setHasUnsavedChanges(false);
+        setIsDeleteModalOpen(false);
+      } else {
+        onShowToast?.(res.error || 'Xóa bảng điểm thất bại', 'error');
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleConfirmRestore = async (backup: AcademicGradeBackup) => {
+    if (!onRestoreMonthlyGrades) return;
+    const res = await onRestoreMonthlyGrades(backup);
+    if (res.success) {
+      setEditGradesBuffer({});
+      setHasUnsavedChanges(false);
+      if (backup.month !== selectedMonth) {
+        setSelectedMonth(backup.month);
+      }
+      setIsRestoreModalOpen(false);
+    } else {
+      onShowToast?.(res.error || 'Khôi phục bảng điểm thất bại', 'error');
+    }
+  };
+
   return (
     <div className="w-full h-full flex flex-col min-h-0 space-y-2 animate-fadeIn overflow-hidden">
       {/* COMPACT TOOLBAR (2 SLIM ROWS) */}
@@ -363,21 +435,36 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
             {/* Top 5 Status badge */}
             <span
               className={`px-2 py-0.5 rounded-lg text-[11px] font-black border ${
-                isPublished
+                !hasGradesInSelectedMonth
+                  ? 'bg-gray-100 text-gray-500 border-gray-200'
+                  : isPublished
                   ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                   : 'bg-amber-50 text-amber-800 border-amber-200'
               }`}
             >
-              {isPublished ? 'Đã công bố Top 5' : 'Bản nháp'}
+              {!hasGradesInSelectedMonth
+                ? 'Chưa có dữ liệu để công bố'
+                : isPublished
+                ? 'Đã công bố Top 5'
+                : 'Bản nháp'}
             </span>
 
             {/* Teacher Publish button */}
             {isTeacher && onPublishHonors && (
               <button
                 type="button"
+                disabled={!hasGradesInSelectedMonth}
                 onClick={() => onPublishHonors(selectedMonth)}
-                className="px-2.5 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold rounded-lg text-[11px] shadow-2xs cursor-pointer flex items-center gap-1 transition-all"
-                title="Công bố vinh danh Top 5 lên bảng tin cho học sinh"
+                className={`px-2.5 py-1 font-bold rounded-lg text-[11px] shadow-2xs flex items-center gap-1 transition-all ${
+                  hasGradesInSelectedMonth
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white cursor-pointer'
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                }`}
+                title={
+                  hasGradesInSelectedMonth
+                    ? 'Công bố vinh danh Top 5 lên bảng tin cho học sinh'
+                    : 'Cần có dữ liệu điểm trước khi công bố vinh danh'
+                }
               >
                 <Trophy className="w-3 h-3" />
                 <span>{isPublished ? 'Cập nhật công bố' : 'Công bố vinh danh'}</span>
@@ -456,6 +543,40 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
               >
                 <Settings className="w-3 h-3 text-slate-500" />
                 <span>Cấu hình môn</span>
+              </button>
+
+              {/* Xóa bảng điểm tháng */}
+              <button
+                type="button"
+                disabled={!hasGradesInSelectedMonth}
+                onClick={() => setIsDeleteModalOpen(true)}
+                className={`px-2.5 py-1.5 font-bold rounded-lg text-[11px] border flex items-center gap-1 transition-colors ${
+                  hasGradesInSelectedMonth
+                    ? 'bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-700 border-red-200 cursor-pointer'
+                    : 'bg-gray-50 text-gray-300 border-gray-200 cursor-not-allowed opacity-60'
+                }`}
+                title={
+                  hasGradesInSelectedMonth
+                    ? `Xóa toàn bộ điểm cả lớp trong ${monthDisplay} để nhập lại Excel`
+                    : `${monthDisplay} chưa có điểm để xóa`
+                }
+              >
+                <Trash2 className={`w-3 h-3 ${hasGradesInSelectedMonth ? 'text-red-500' : 'text-gray-300'}`} />
+                <span>Xóa bảng điểm tháng</span>
+              </button>
+
+              {/* Khôi phục điểm */}
+              <button
+                type="button"
+                onClick={() => setIsRestoreModalOpen(true)}
+                className="px-2.5 py-1.5 bg-amber-50/80 hover:bg-amber-100 active:bg-amber-200 text-amber-800 font-bold rounded-lg text-[11px] border border-amber-200 flex items-center gap-1 cursor-pointer transition-colors"
+                title="Khôi phục bảng điểm đã xóa từ bản sao lưu an toàn"
+              >
+                <RotateCcw className="w-3 h-3 text-amber-600" />
+                <span>Khôi phục điểm</span>
+                {backupsForMonth.length > 0 && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                )}
               </button>
 
               {hasUnsavedChanges && (
@@ -710,6 +831,31 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
         }}
         onClose={() => setIsSubjectModalOpen(false)}
         onShowToast={onShowToast}
+      />
+
+      {/* Delete Monthly Grades Confirmation Modal */}
+      <DeleteMonthlyGradesModal
+        isOpen={isDeleteModalOpen}
+        className={className}
+        schoolYear={schoolYear}
+        month={selectedMonth}
+        studentCount={gradedStudentsCount}
+        totalGradesCount={gradesInSelectedMonth.length}
+        isDeleting={isDeleting}
+        onConfirmDelete={handleConfirmDelete}
+        onClose={() => setIsDeleteModalOpen(false)}
+      />
+
+      {/* Restore Academic Grades Modal */}
+      <RestoreAcademicGradesModal
+        isOpen={isRestoreModalOpen}
+        className={className}
+        schoolYear={schoolYear}
+        selectedMonth={selectedMonth}
+        backups={state.academicBackups || []}
+        currentMonthGradesCount={gradesInSelectedMonth.length}
+        onRestore={handleConfirmRestore}
+        onClose={() => setIsRestoreModalOpen(false)}
       />
     </div>
   );

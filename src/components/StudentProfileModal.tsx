@@ -202,8 +202,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         }
       });
 
-      // If no monthly records yet in academicGrades, check legacy student.grades
-      if (Object.keys(mGrades).length === 0 && student.grades && Object.keys(student.grades).length > 0) {
+      // If no monthly records yet in academicGrades, check legacy student.grades only if academicGrades is completely uninitialized
+      if (
+        Object.keys(mGrades).length === 0 &&
+        student.grades &&
+        Object.keys(student.grades).length > 0 &&
+        (state.academicGrades || []).length === 0
+      ) {
         setTempGrades(student.grades);
       } else {
         setTempGrades(mGrades);

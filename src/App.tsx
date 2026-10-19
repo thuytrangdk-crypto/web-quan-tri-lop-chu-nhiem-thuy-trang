@@ -9,6 +9,7 @@ import {
   Student,
   UserRole,
   MonthlyGradeRecord,
+  AcademicGradeBackup,
 } from './types';
 import { DEFAULT_INITIAL_STATE } from './defaultData';
 import { generateId, getTodayStr } from './utils/helpers';
@@ -858,6 +859,158 @@ export default function App() {
     });
     const [y, m] = month.split('-');
     showToast(`Đã công bố vinh danh Top 5 học tập Tháng ${Number(m)}/${y}!`, 'success');
+  };
+
+  const handleDeleteMonthlyGrades = async (
+    month: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (authRole !== 'teacher') {
+      return { success: false, error: 'Chỉ giáo viên mới có quyền xóa bảng điểm tháng.' };
+    }
+
+    const clsName = state.config.className;
+    const yr = state.config.schoolYear;
+
+    const gradesToDelete = (state.academicGrades || []).filter(
+      (g) =>
+        (!g.className || g.className === clsName) &&
+        (!g.schoolYear || g.schoolYear === yr) &&
+        g.month === month
+    );
+
+    if (gradesToDelete.length === 0) {
+      return { success: false, error: 'Không tìm thấy dữ liệu điểm của tháng này để xóa.' };
+    }
+
+    const existingAnnouncement = (state.academicAnnouncements || []).find(
+      (a) => a.className === clsName && a.schoolYear === yr && a.month === month
+    );
+
+    // Create Backup object
+    const backup: AcademicGradeBackup = {
+      id: `bak_${clsName}_${month}_${Date.now()}`,
+      className: clsName,
+      schoolYear: yr,
+      month,
+      createdAt: new Date().toISOString(),
+      createdBy: state.config.teacherName || 'Giáo viên',
+      studentCount: new Set(gradesToDelete.map((g) => g.studentId)).size,
+      totalGradesCount: gradesToDelete.length,
+      grades: gradesToDelete,
+      announcement: existingAnnouncement,
+    };
+
+    // Filter out grades for this class, year, and month
+    const remainingGrades = (state.academicGrades || []).filter(
+      (g) =>
+        !(
+          (!g.className || g.className === clsName) &&
+          (!g.schoolYear || g.schoolYear === yr) &&
+          g.month === month
+        )
+    );
+
+    // Update announcement for this month: remove published status so it reverts to draft/unpublished
+    const updatedAnnouncements = (state.academicAnnouncements || []).filter(
+      (a) => !(a.className === clsName && a.schoolYear === yr && a.month === month)
+    );
+
+    // Add backup to state.academicBackups (keep latest 30 backups)
+    const updatedBackups = [backup, ...(state.academicBackups || [])].slice(0, 30);
+
+    const nextState: AppState = {
+      ...state,
+      academicGrades: remainingGrades,
+      academicAnnouncements: updatedAnnouncements,
+      academicBackups: updatedBackups,
+      _syncMeta: {
+        clientId: CLIENT_SESSION_ID,
+        timestamp: Date.now(),
+      },
+    };
+
+    // Execute atomic delete with prerequisite backup on Supabase
+    const res = await supabaseService.deleteMonthlyAcademicGrades(backup, nextState);
+    if (!res.success) {
+      return { success: false, error: res.error };
+    }
+
+    // Update local state after confirmed Supabase write
+    latestStateRef.current = nextState;
+    setState(nextState);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+    } catch (e) {}
+
+    const [y, m] = month.split('-');
+    showToast(`Đã xóa bảng điểm Tháng ${Number(m)}/${y} và tạo bản sao lưu an toàn!`, 'success');
+    return { success: true };
+  };
+
+  const handleRestoreMonthlyGrades = async (
+    backup: AcademicGradeBackup
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (authRole !== 'teacher') {
+      return { success: false, error: 'Chỉ giáo viên mới có quyền khôi phục bảng điểm.' };
+    }
+
+    const clsName = backup.className || state.config.className;
+    const yr = backup.schoolYear || state.config.schoolYear;
+    const month = backup.month;
+
+    // Filter out any current grades for this month
+    const remainingGrades = (state.academicGrades || []).filter(
+      (g) =>
+        !(
+          (!g.className || g.className === clsName) &&
+          (!g.schoolYear || g.schoolYear === yr) &&
+          g.month === month
+        )
+    );
+
+    // Merge restored grades
+    const restoredGrades = [...remainingGrades, ...backup.grades];
+
+    // Restore announcement if present, but set isPublished: false (Teacher must review & publish later!)
+    const updatedAnnouncements = [...(state.academicAnnouncements || [])];
+    const annIdx = updatedAnnouncements.findIndex(
+      (a) => a.className === clsName && a.schoolYear === yr && a.month === month
+    );
+    if (annIdx >= 0) {
+      updatedAnnouncements[annIdx] = {
+        ...updatedAnnouncements[annIdx],
+        isPublished: false,
+      };
+    }
+
+    const nextState: AppState = {
+      ...state,
+      academicGrades: restoredGrades,
+      academicAnnouncements: updatedAnnouncements,
+      _syncMeta: {
+        clientId: CLIENT_SESSION_ID,
+        timestamp: Date.now(),
+      },
+    };
+
+    // Save to Supabase
+    const res = await supabaseService.saveState(nextState);
+    if (!res.success) {
+      return {
+        success: false,
+        error: `Lỗi khi lưu dữ liệu khôi phục lên Supabase: ${res.error}`,
+      };
+    }
+
+    latestStateRef.current = nextState;
+    setState(nextState);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+    } catch (e) {}
+
+    const [y, m] = month.split('-');
+    showToast(`Đã khôi phục thành công bảng điểm Tháng ${Number(m)}/${y}!`, 'success');
+    return { success: true };
   };
 
   const handleSaveStudentAcademicGrades = (

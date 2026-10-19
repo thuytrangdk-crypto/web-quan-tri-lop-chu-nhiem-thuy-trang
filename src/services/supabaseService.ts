@@ -103,6 +103,65 @@ export const supabaseService = {
     }
   },
 
+  // Backup academic grades specifically to Supabase
+  async createAcademicBackup(
+    backup: import('../types').AcademicGradeBackup
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { error } = await supabase.from(TABLE_NAME).upsert(
+        {
+          id: backup.id,
+          data: backup,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      return { success: true };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err.message || 'Lỗi không xác định khi sao lưu lên Supabase.',
+      };
+    }
+  },
+
+  // Perform safe deletion with prerequisite backup on Supabase
+  async deleteMonthlyAcademicGrades(
+    backup: import('../types').AcademicGradeBackup,
+    updatedState: AppState
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // 1. Mandatory prerequisite: Backup MUST succeed first
+      const backupRes = await this.createAcademicBackup(backup);
+      if (!backupRes.success) {
+        return {
+          success: false,
+          error: `Không thể tạo bản sao lưu trên Supabase: ${backupRes.error}. Đã dừng thao tác xóa để bảo vệ dữ liệu.`,
+        };
+      }
+
+      // 2. Save updated state atomically to Supabase
+      const saveRes = await this.saveState(updatedState);
+      if (!saveRes.success) {
+        return {
+          success: false,
+          error: `Lỗi khi cập nhật dữ liệu sau xóa lên Supabase: ${saveRes.error}.`,
+        };
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err.message || 'Lỗi khi xóa bảng điểm trên Supabase.',
+      };
+    }
+  },
+
   // Subscribe to real-time changes
   subscribe(onRemoteUpdate: (remoteState: AppState) => void) {
     const channel = supabase

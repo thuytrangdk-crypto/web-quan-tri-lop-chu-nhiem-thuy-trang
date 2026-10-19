@@ -108,6 +108,19 @@ export interface AcademicHonorsAnnouncement {
   lastCalculatedAt?: string;
 }
 
+export interface AcademicGradeBackup {
+  id: string;
+  className: string;
+  schoolYear: string;
+  month: string; // YYYY-MM
+  createdAt: string; // ISO string
+  createdBy: string;
+  studentCount: number;
+  totalGradesCount: number;
+  grades: MonthlyGradeRecord[];
+  announcement?: AcademicHonorsAnnouncement;
+}
+
 export interface AppState {
   config: AppConfig;
   students: Student[];
@@ -119,6 +132,7 @@ export interface AppState {
   seatingLayout?: SeatingLayout;
   academicGrades?: MonthlyGradeRecord[];
   academicAnnouncements?: AcademicHonorsAnnouncement[];
+  academicBackups?: AcademicGradeBackup[];
   _syncMeta?: {
     clientId?: string;
     timestamp?: number;
