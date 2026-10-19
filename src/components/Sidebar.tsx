@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   LayoutDashboard,
   Megaphone,
@@ -12,8 +12,11 @@ import {
   UserCheck,
   Grid3X3,
   BookOpen,
+  ChevronDown,
+  Camera,
 } from 'lucide-react';
 import { SyncStatus } from '../services/supabaseService';
+import { resizeImageBase64 } from '../utils/helpers';
 
 interface SidebarProps {
   currentView: string;
@@ -22,6 +25,7 @@ interface SidebarProps {
   classAvatar?: string;
   isTeacher?: boolean;
   studentName?: string;
+  teacherName?: string;
   onUpdateClassAvatar?: (base64: string) => void;
   onOpenClassSwitch?: () => void;
   onLogout: () => void;
@@ -40,6 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   classAvatar,
   isTeacher = true,
   studentName,
+  teacherName,
   onUpdateClassAvatar,
   onOpenClassSwitch,
   onLogout,
@@ -50,6 +55,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenMyProfile,
   syncStatus,
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onUpdateClassAvatar) {
+      resizeImageBase64(file, 300, 300, (base64) => {
+        onUpdateClassAvatar(base64);
+      });
+    }
+    e.target.value = '';
+  };
 
   const teacherNavItems = [
     { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
@@ -82,17 +98,123 @@ export const Sidebar: React.FC<SidebarProps> = ({
           isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        {/* Mobile Drawer Header only (hidden on desktop to avoid duplicate header) */}
-        <div className="md:hidden flex items-center justify-between px-4 py-3.5 border-b border-gray-100 shrink-0 bg-gray-50/70">
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-            Menu điều hướng
-          </span>
+        {/* APP INFO BLOCK AT TOP OF SIDEBAR */}
+        <div className="p-3.5 border-b border-gray-200 shrink-0 bg-slate-50/70">
+          {/* Row 1: Logo + App Name + Close button on mobile */}
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                onClick={() => isTeacher && onUpdateClassAvatar && fileInputRef.current?.click()}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden shadow-2xs relative group ${
+                  isTeacher && onUpdateClassAvatar ? 'cursor-pointer hover:ring-2 hover:ring-blue-400' : ''
+                }`}
+                title={isTeacher && onUpdateClassAvatar ? 'Bấm để đổi ảnh đại diện lớp' : `Lớp ${className}`}
+              >
+                {classAvatar ? (
+                  <img src={classAvatar} alt="Lớp" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-emerald-400 via-teal-500 to-blue-600 flex items-center justify-center text-white">
+                    <GraduationCap className="w-5 h-5 text-white" />
+                  </div>
+                )}
+                {isTeacher && onUpdateClassAvatar && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="w-3.5 h-3.5 text-white" />
+                  </div>
+                )}
+              </div>
+              {isTeacher && onUpdateClassAvatar && (
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/jpeg, image/png, image/webp"
+                  onChange={handleAvatarFile}
+                />
+              )}
+
+              <div className="min-w-0">
+                <h1 className="text-xs font-black text-slate-900 tracking-tight uppercase leading-none truncate">
+                  TRỢ LÝ CHỦ NHIỆM
+                </h1>
+                {/* Class selector */}
+                {isTeacher && onOpenClassSwitch ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenClassSwitch();
+                      onCloseMobile();
+                    }}
+                    className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-700 font-extrabold text-[11px] border border-blue-200 transition-colors cursor-pointer"
+                    title="Bấm để đổi lớp hoặc năm học"
+                  >
+                    <span>Lớp {className}</span>
+                    <ChevronDown className="w-3 h-3 text-blue-600" />
+                  </button>
+                ) : (
+                  <span className="mt-1 inline-flex items-center px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 font-extrabold text-[11px] border border-blue-200">
+                    Lớp {className}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Close button on mobile */}
+            <button
+              onClick={onCloseMobile}
+              className="md:hidden p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-200/60 transition-colors cursor-pointer shrink-0"
+              aria-label="Đóng menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Row 2: GVCN name */}
+          <div className="text-[11px] font-semibold text-gray-600 truncate flex items-center gap-1.5 mb-2 px-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+            <span className="text-gray-400 font-medium">GVCN:</span>
+            <span className="text-gray-900 font-bold truncate">
+              {teacherName || 'Chưa thiết lập'}
+            </span>
+          </div>
+
+          {/* Row 3: Supabase connection status pill */}
           <button
-            onClick={onCloseMobile}
-            className="p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-200/60 transition-colors cursor-pointer"
-            aria-label="Đóng menu"
+            type="button"
+            onClick={() => {
+              if (onOpenSupabaseModal) {
+                onOpenSupabaseModal();
+                onCloseMobile();
+              }
+            }}
+            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition-all cursor-pointer ${
+              syncStatus?.isTableReady
+                ? 'bg-emerald-50/80 border-emerald-200 text-emerald-800 hover:bg-emerald-100/80'
+                : syncStatus?.isConnected
+                ? 'bg-amber-50/80 border-amber-200 text-amber-800 hover:bg-amber-100/80'
+                : 'bg-red-50/80 border-red-200 text-red-800 hover:bg-red-100/80'
+            }`}
+            title="Bấm để kiểm tra đồng bộ Supabase Cloud"
           >
-            <X className="w-5 h-5" />
+            <div className="flex items-center gap-1.5 truncate">
+              <Cloud className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+              <span className="truncate">
+                {syncStatus?.isTableReady
+                  ? 'Supabase: Đã kết nối'
+                  : syncStatus?.isConnected
+                  ? 'Supabase: Cần tạo bảng'
+                  : 'Supabase: Chưa kết nối'}
+              </span>
+            </div>
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                syncStatus?.isTableReady
+                  ? 'bg-emerald-500 animate-pulse'
+                  : syncStatus?.isConnected
+                  ? 'bg-amber-400'
+                  : 'bg-red-400'
+              }`}
+            />
           </button>
         </div>
 

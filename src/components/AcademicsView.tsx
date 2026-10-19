@@ -51,6 +51,24 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   onShowToast,
 }) => {
   const currentMonth = getCurrentMonthStr();
+  const className = state.config.className || 'Lớp';
+  const schoolYear = state.config.schoolYear || '2026-2027';
+  const subjects = state.config.subjects || [];
+  const evalSubjects = state.config.evaluationSubjects || [];
+
+  // Distinct recorded months for this class
+  const recordedMonths = useMemo(() => {
+    return Array.from(
+      new Set(
+        (state.academicGrades || [])
+          .filter((g) => !g.className || g.className === className)
+          .map((g) => g.month)
+      )
+    )
+      .sort()
+      .reverse();
+  }, [state.academicGrades, className]);
+
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     // If state.academicGrades has data for currentMonth, use it
     const hasCurrent = (state.academicGrades || []).some((g) => g.month === currentMonth);
@@ -59,6 +77,16 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
     const recorded = Array.from(new Set((state.academicGrades || []).map((g) => g.month))).sort().reverse();
     return recorded[0] || currentMonth;
   });
+
+  // Auto-sync selectedMonth if current selected has no data but other recorded months exist
+  React.useEffect(() => {
+    if (recordedMonths.length > 0 && !recordedMonths.includes(selectedMonth)) {
+      setSelectedMonth(recordedMonths[0]);
+      setEditGradesBuffer({});
+      setHasUnsavedChanges(false);
+    }
+  }, [recordedMonths, selectedMonth]);
+
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modals
@@ -92,12 +120,6 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
     setEditGradesBuffer({});
     setHasUnsavedChanges(false);
   };
-
-  // Class & config metadata
-  const className = state.config.className || 'Lớp';
-  const schoolYear = state.config.schoolYear || '2026-2027';
-  const subjects = state.config.subjects || [];
-  const evalSubjects = state.config.evaluationSubjects || [];
 
   // Academic announcements (Bản nháp / Đã công bố)
   const currentAnnouncement = useMemo(() => {
@@ -244,210 +266,252 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
   };
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto h-full flex flex-col pb-10 animate-fadeIn">
-      {/* Top Header Card */}
-      <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-200 shrink-0">
-            <BookOpen className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg font-black text-gray-900 tracking-tight">
-                BẢNG ĐIỂM HỌC TẬP
-              </h2>
-              <span className="px-2.5 py-0.5 rounded-xl bg-blue-50 text-blue-700 font-extrabold text-xs border border-blue-200">
-                Lớp {className}
-              </span>
-              <span className="px-2.5 py-0.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200">
-                Năm học {schoolYear}
-              </span>
+    <div className="w-full h-full flex flex-col min-h-0 space-y-2 animate-fadeIn overflow-hidden">
+      {/* COMPACT TOOLBAR (2 SLIM ROWS) */}
+      <div className="bg-white px-3.5 py-2.5 rounded-2xl shadow-xs border border-gray-200 shrink-0 space-y-2">
+        {/* ROW 1: Title, Badges, Note tooltip, Month Picker + Pills, and Top 5 Publish */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          {/* Left: Title + Badges + Note hint */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <BookOpen className="w-4 h-4" />
             </div>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Theo dõi điểm tổng hợp các môn theo từng tháng • Tính trung bình cộng và xếp hạng nội bộ
-            </p>
-          </div>
-        </div>
-
-        {/* Month Picker Control */}
-        <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-2xl border border-gray-200/90 self-stretch sm:self-auto justify-between sm:justify-start">
-          <button
-            onClick={handlePrevMonth}
-            className="p-1.5 rounded-xl hover:bg-white text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
-            title="Tháng trước"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
-          <div className="flex items-center gap-2 px-2">
-            <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => {
-                if (e.target.value) {
-                  setSelectedMonth(e.target.value);
-                  setEditGradesBuffer({});
-                  setHasUnsavedChanges(false);
-                }
-              }}
-              className="bg-transparent text-xs sm:text-sm font-extrabold text-gray-800 outline-none cursor-pointer"
-            />
-          </div>
-
-          <button
-            onClick={handleNextMonth}
-            className="p-1.5 rounded-xl hover:bg-white text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
-            title="Tháng sau"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Action Toolbar */}
-      <div className="bg-white p-4 rounded-3xl shadow-xs border border-gray-100 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3 shrink-0">
-        {/* Search */}
-        <div className="flex-1 relative">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Tìm theo tên học sinh, mã hồ sơ..."
-            className="w-full pl-10 pr-4 py-2.5 bg-gray-50/80 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-xs sm:text-sm font-medium"
-          />
-        </div>
-
-        {/* Buttons (Teacher only) */}
-        {isTeacher && (
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            {/* Download Template */}
-            <button
-              onClick={() =>
-                downloadAcademicExcelTemplate(
-                  state.students,
-                  className,
-                  schoolYear,
-                  selectedMonth,
-                  subjects
-                )
-              }
-              className="px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold rounded-xl text-xs border border-gray-200 flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Tải mẫu Excel đã điền sẵn danh sách học sinh của lớp"
-            >
-              <Download className="w-3.5 h-3.5 text-blue-600" />
-              <span>Tải mẫu Excel</span>
-            </button>
-
-            {/* Import Excel */}
-            <button
-              onClick={() => setIsImportModalOpen(true)}
-              className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl text-xs border border-emerald-200 flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Nhập điểm cả lớp từ tệp Excel"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Nhập Excel điểm tháng</span>
-            </button>
-
-            {/* Export Excel */}
-            <button
-              onClick={() =>
-                exportAcademicClassToExcel(
-                  state.students,
-                  state.config,
-                  selectedMonth,
-                  effectiveGrades
-                )
-              }
-              className="px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold rounded-xl text-xs border border-gray-200 flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Xuất bảng điểm tháng hiện tại ra Excel"
-            >
-              <Download className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Xuất Excel</span>
-            </button>
-
-            {/* Subject Config */}
-            <button
-              onClick={() => setIsSubjectModalOpen(true)}
-              className="px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs border border-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Thêm bớt môn học hoặc chọn môn nhận xét"
-            >
-              <Settings className="w-3.5 h-3.5 text-slate-500" />
-              <span>Cấu hình môn</span>
-            </button>
-
-            {/* Save Direct Edits */}
-            {hasUnsavedChanges && (
-              <button
-                onClick={handleSaveDirectEdits}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md flex items-center gap-1.5 transition-all cursor-pointer animate-pulse"
-              >
-                <Save className="w-3.5 h-3.5" />
-                <span>Lưu thay đổi</span>
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Publication Status & Note Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-3 bg-blue-50/70 border border-blue-100 rounded-2xl text-xs text-blue-900">
-        <div className="flex items-center gap-2">
-          <Info className="w-4 h-4 text-blue-600 shrink-0" />
-          <span>
-            <strong>Ghi chú:</strong> Trung bình cộng các môn theo tháng phục vụ theo dõi nội bộ, không gán thành kết quả học tập học kỳ chính thức.
-          </span>
-        </div>
-
-        {/* Publication Control for Teacher */}
-        {isTeacher && (
-          <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-            <span
-              className={`px-2.5 py-1 rounded-xl text-[11px] font-extrabold border ${
-                isPublished
-                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                  : 'bg-amber-100 text-amber-800 border-amber-300'
-              }`}
-            >
-              {isPublished ? 'Đã công bố Top 5' : 'Bản nháp (Chưa công bố)'}
+            <h2 className="text-xs sm:text-sm font-black text-gray-900 tracking-tight uppercase whitespace-nowrap">
+              BẢNG ĐIỂM HỌC TẬP
+            </h2>
+            <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-extrabold text-[11px] border border-blue-200">
+              Lớp {className}
+            </span>
+            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200">
+              Năm học {schoolYear}
             </span>
 
-            {onPublishHonors && (
+            {/* Note badge with info tooltip */}
+            <span
+              className="hidden lg:inline-flex items-center gap-1 text-[11px] text-gray-500 pl-2 border-l border-gray-200"
+              title="Ghi chú: Trung bình cộng các môn theo tháng phục vụ theo dõi nội bộ, không gán thành kết quả học kỳ chính thức."
+            >
+              <Info className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span className="truncate max-w-xs xl:max-w-md">
+                ĐTB theo tháng theo dõi nội bộ
+              </span>
+            </span>
+          </div>
+
+          {/* Right: Quick Month Pills + Month Navigation + Top 5 Publish Button */}
+          <div className="flex items-center gap-1.5 flex-wrap self-stretch sm:self-auto justify-between sm:justify-end">
+            {/* Quick recorded month buttons */}
+            {recordedMonths.map((mStr) => {
+              const [mY, mM] = mStr.split('-');
+              const isSel = mStr === selectedMonth;
+              return (
+                <button
+                  key={mStr}
+                  type="button"
+                  onClick={() => {
+                    setSelectedMonth(mStr);
+                    setEditGradesBuffer({});
+                    setHasUnsavedChanges(false);
+                  }}
+                  className={`px-2 py-0.5 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
+                    isSel
+                      ? 'bg-blue-600 text-white shadow-2xs'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                  title={`Xem điểm tháng ${Number(mM)}/${mY}`}
+                >
+                  T{Number(mM)}/{mY}
+                </button>
+              );
+            })}
+
+            {/* Month input with arrows */}
+            <div className="flex items-center bg-gray-50 px-1 py-0.5 rounded-xl border border-gray-200">
+              <button
+                type="button"
+                onClick={handlePrevMonth}
+                className="p-1 rounded-lg hover:bg-white text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
+                title="Tháng trước"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <div className="flex items-center gap-1 px-1">
+                <Calendar className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setSelectedMonth(e.target.value);
+                      setEditGradesBuffer({});
+                      setHasUnsavedChanges(false);
+                    }
+                  }}
+                  className="bg-transparent text-xs font-black text-gray-800 outline-none cursor-pointer w-23"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleNextMonth}
+                className="p-1 rounded-lg hover:bg-white text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
+                title="Tháng sau"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Top 5 Status badge */}
+            <span
+              className={`px-2 py-0.5 rounded-lg text-[11px] font-black border ${
+                isPublished
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-amber-50 text-amber-800 border-amber-200'
+              }`}
+            >
+              {isPublished ? 'Đã công bố Top 5' : 'Bản nháp'}
+            </span>
+
+            {/* Teacher Publish button */}
+            {isTeacher && onPublishHonors && (
               <button
                 type="button"
                 onClick={() => onPublishHonors(selectedMonth)}
-                className="px-3 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold rounded-xl text-xs shadow-xs cursor-pointer flex items-center gap-1 transition-all"
+                className="px-2.5 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold rounded-lg text-[11px] shadow-2xs cursor-pointer flex items-center gap-1 transition-all"
+                title="Công bố vinh danh Top 5 lên bảng tin cho học sinh"
               >
-                <Trophy className="w-3.5 h-3.5" />
+                <Trophy className="w-3 h-3" />
                 <span>{isPublished ? 'Cập nhật công bố' : 'Công bố vinh danh'}</span>
               </button>
             )}
           </div>
-        )}
+        </div>
+
+        {/* ROW 2: Search + Action Buttons */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1 border-t border-gray-100">
+          {/* Search */}
+          <div className="relative flex-1 sm:max-w-xs md:max-w-sm">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Tìm theo tên học sinh, mã hồ sơ..."
+              className="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Action Buttons (Teacher only) */}
+          {isTeacher && (
+            <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+              <button
+                type="button"
+                onClick={() =>
+                  downloadAcademicExcelTemplate(
+                    state.students,
+                    className,
+                    schoolYear,
+                    selectedMonth,
+                    subjects
+                  )
+                }
+                className="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold rounded-lg text-[11px] border border-gray-200 flex items-center gap-1 cursor-pointer transition-colors"
+                title="Tải mẫu Excel đã điền sẵn danh sách học sinh của lớp"
+              >
+                <Download className="w-3 h-3 text-blue-600" />
+                <span>Tải mẫu Excel</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(true)}
+                className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold rounded-lg text-[11px] border border-emerald-200 flex items-center gap-1 cursor-pointer transition-colors"
+                title="Nhập điểm cả lớp từ tệp Excel"
+              >
+                <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
+                <span>Nhập Excel điểm tháng</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  exportAcademicClassToExcel(
+                    state.students,
+                    state.config,
+                    selectedMonth,
+                    effectiveGrades
+                  )
+                }
+                className="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold rounded-lg text-[11px] border border-gray-200 flex items-center gap-1 cursor-pointer transition-colors"
+                title="Xuất bảng điểm tháng hiện tại ra Excel"
+              >
+                <Download className="w-3 h-3 text-emerald-600" />
+                <span>Xuất Excel</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsSubjectModalOpen(true)}
+                className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold rounded-lg text-[11px] border border-slate-200 flex items-center gap-1 cursor-pointer transition-colors"
+                title="Thêm bớt môn học hoặc chọn môn nhận xét"
+              >
+                <Settings className="w-3 h-3 text-slate-500" />
+                <span>Cấu hình môn</span>
+              </button>
+
+              {hasUnsavedChanges && (
+                <button
+                  type="button"
+                  onClick={handleSaveDirectEdits}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg text-[11px] shadow-sm flex items-center gap-1 cursor-pointer animate-pulse"
+                >
+                  <Save className="w-3 h-3" />
+                  <span>Lưu thay đổi</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Modified After Publish Warning */}
+      {/* MODIFIED WARNING IF CHANGED AFTER PUBLISH */}
       {isTeacher && hasModifiedAfterPublish && (
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between text-xs text-amber-900 animate-fadeIn">
+        <div className="px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-[11px] text-amber-900 shrink-0 animate-fadeIn">
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
             <span>
-              <strong>Lưu ý:</strong> Bảng điểm tháng này vừa có thay đổi sau ngày công bố vinh danh. Vui lòng bấm <em>“Cập nhật công bố”</em> để đồng bộ cho học sinh xem bảng xếp hạng mới nhất.
+              <strong>Lưu ý:</strong> Bảng điểm tháng này vừa có thay đổi sau ngày công bố vinh danh. Vui lòng bấm <em>“Cập nhật công bố”</em> để đồng bộ Top 5 mới nhất.
             </span>
           </div>
+          {onPublishHonors && (
+            <button
+              type="button"
+              onClick={() => onPublishHonors(selectedMonth)}
+              className="ml-2 px-2 py-0.5 rounded-md bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] shrink-0"
+            >
+              Cập nhật ngay
+            </button>
+          )}
         </div>
       )}
 
-      {/* Main Academic Table */}
-      <div className="flex-1 bg-white rounded-3xl shadow-xs border border-gray-100 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-auto custom-scrollbar">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead className="bg-gray-50/90 text-gray-700 sticky top-0 z-10 border-b border-gray-200 uppercase font-extrabold text-[11px]">
+      {/* MAIN ACADEMIC TABLE - FILLS ALL REMAINING VERTICAL SPACE */}
+      <div className="flex-1 min-h-0 bg-white rounded-xl shadow-2xs border border-gray-200 overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-0 overflow-auto custom-scrollbar relative">
+          <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
+            <thead className="bg-gray-100 text-gray-700 sticky top-0 z-20 border-b border-gray-200 uppercase font-extrabold text-[11px] tracking-tight">
               <tr>
-                <th className="px-3.5 py-3 text-center w-12">STT</th>
-                <th className="px-3.5 py-3 w-28">Mã hồ sơ</th>
-                <th className="px-3.5 py-3 min-w-[170px]">Họ và tên</th>
+                {/* Sticky Left STT */}
+                <th className="px-2 py-1.5 text-center w-11 min-w-[44px] max-w-[44px] sticky top-0 left-0 z-30 bg-gray-100 border-r border-gray-200">
+                  STT
+                </th>
+                {/* Sticky Left Mã hồ sơ */}
+                <th className="px-2.5 py-1.5 w-24 min-w-[96px] max-w-[96px] sticky top-0 left-[44px] z-30 bg-gray-100 border-r border-gray-200">
+                  Mã hồ sơ
+                </th>
+                {/* Sticky Left Họ và tên */}
+                <th className="px-3 py-1.5 min-w-[180px] max-w-[200px] sticky top-0 left-[140px] z-30 bg-gray-100 border-r-2 border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                  Họ và tên
+                </th>
 
                 {/* Subject Columns */}
                 {subjects.map((sub) => {
@@ -455,7 +519,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                   return (
                     <th
                       key={sub}
-                      className="px-2.5 py-3 text-center min-w-[85px] max-w-[110px]"
+                      className="px-2 py-2 text-center min-w-[72px] max-w-[96px] border-r border-gray-100"
                       title={isEval ? `${sub} (Đánh giá nhận xét - Không tính ĐTB)` : sub}
                     >
                       <div className="truncate">{sub}</div>
@@ -468,11 +532,15 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                   );
                 })}
 
-                <th className="px-3 py-3 text-center min-w-[100px]">Số môn có điểm</th>
-                <th className="px-3.5 py-3 text-center min-w-[125px] bg-blue-50/60 text-blue-900">
+                <th className="px-2 py-2 text-center min-w-[85px] border-r border-gray-100">
+                  Số môn
+                </th>
+                <th className="px-3 py-2 text-center min-w-[110px] bg-blue-100/70 text-blue-900 border-r border-blue-200">
                   Trung bình cộng
                 </th>
-                <th className="px-3 py-3 text-center w-20">Thứ hạng</th>
+                <th className="px-2 py-2 text-center w-18">
+                  Thứ hạng
+                </th>
               </tr>
             </thead>
 
@@ -494,21 +562,37 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                   return (
                     <tr
                       key={studentId}
-                      className={`hover:bg-blue-50/30 transition-colors ${
-                        isLogged ? 'bg-amber-50/40' : ''
+                      className={`group transition-colors ${
+                        isLogged ? 'bg-amber-50/50' : 'hover:bg-blue-50/40'
                       }`}
                     >
-                      <td className="px-3.5 py-2.5 text-center font-bold text-gray-400">
+                      {/* Sticky Left STT */}
+                      <td
+                        className={`px-2 py-1 text-center font-bold text-gray-500 w-11 min-w-[44px] max-w-[44px] sticky left-0 z-10 border-r border-gray-100 transition-colors ${
+                          isLogged ? 'bg-amber-50 group-hover:bg-amber-100/70' : 'bg-white group-hover:bg-blue-50/80'
+                        }`}
+                      >
                         {studentSummary.stt}
                       </td>
-                      <td className="px-3.5 py-2.5 font-mono font-bold text-gray-700">
+                      {/* Sticky Left Mã hồ sơ */}
+                      <td
+                        className={`px-2.5 py-1 font-mono font-bold text-gray-700 w-24 min-w-[96px] max-w-[96px] sticky left-[44px] z-10 border-r border-gray-100 transition-colors ${
+                          isLogged ? 'bg-amber-50 group-hover:bg-amber-100/70' : 'bg-white group-hover:bg-blue-50/80'
+                        }`}
+                      >
                         {studentId}
                       </td>
-                      <td className="px-3.5 py-2.5">
+                      {/* Sticky Left Họ và tên */}
+                      <td
+                        className={`px-3 py-1 min-w-[180px] max-w-[200px] sticky left-[140px] z-10 border-r-2 border-gray-300 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] transition-colors ${
+                          isLogged ? 'bg-amber-50 group-hover:bg-amber-100/70' : 'bg-white group-hover:bg-blue-50/80'
+                        }`}
+                      >
                         <button
                           type="button"
-                          onClick={() => onSelectStudent?.(studentId)}
-                          className="font-bold text-gray-900 hover:text-blue-600 hover:underline uppercase text-left cursor-pointer"
+                          onClick={() => onSelectStudent?.(studentId, selectedMonth)}
+                          className="font-bold text-gray-900 hover:text-blue-600 hover:underline uppercase text-left cursor-pointer truncate max-w-[175px] block leading-tight"
+                          title={`Xem chi tiết hồ sơ ${studentSummary.name}`}
                         >
                           {studentSummary.name}
                         </button>
@@ -517,10 +601,8 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                       {/* Subject Cells */}
                       {subjects.map((sub) => {
                         const isEval = evalSubjects.includes(sub);
-                        const bufferedVal =
-                          editGradesBuffer[studentId]?.[sub];
-                        const storedVal =
-                          studentSummary.grades[sub];
+                        const bufferedVal = editGradesBuffer[studentId]?.[sub];
+                        const storedVal = studentSummary.grades[sub];
 
                         const displayVal =
                           bufferedVal !== undefined
@@ -532,7 +614,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                         const isDirty = bufferedVal !== undefined;
 
                         return (
-                          <td key={sub} className="px-2 py-1.5 text-center">
+                          <td key={sub} className="px-1 py-1 text-center border-r border-gray-100">
                             {isTeacher ? (
                               <input
                                 type="text"
@@ -542,7 +624,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                                   handleCellChange(studentId, sub, e.target.value)
                                 }
                                 placeholder="-"
-                                className={`w-16 px-1.5 py-1 text-center font-bold rounded-lg border text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                className={`w-12 h-6 px-1 text-center font-bold rounded border text-xs outline-none focus:ring-1 focus:ring-blue-500 transition-all ${
                                   isDirty
                                     ? 'bg-amber-50 border-amber-400 text-amber-900'
                                     : isEval
@@ -560,27 +642,26 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                       })}
 
                       {/* Valid Subjects Count */}
-                      <td className="px-3 py-2.5 text-center font-semibold text-gray-600">
-                        {studentSummary.validSubjectsCount} /{' '}
-                        {studentSummary.totalGradedSubjectsCount} môn
+                      <td className="px-2 py-1 text-center font-semibold text-gray-600 border-r border-gray-100">
+                        {studentSummary.validSubjectsCount} / {studentSummary.totalGradedSubjectsCount}
                       </td>
 
                       {/* Average GPA */}
-                      <td className="px-3.5 py-2.5 text-center bg-blue-50/30">
+                      <td className="px-2 py-1 text-center bg-blue-50/40 border-r border-blue-100">
                         {studentSummary.rawAverage !== null ? (
-                          <span className="inline-block px-2.5 py-0.5 rounded-lg bg-blue-100/80 text-blue-800 font-black text-xs">
+                          <span className="inline-block px-2 py-0.5 rounded bg-blue-100 text-blue-900 font-black text-xs">
                             {studentSummary.formattedAverage}
                           </span>
                         ) : (
-                          <span className="text-gray-400 italic">Chưa có điểm</span>
+                          <span className="text-gray-400 italic text-[11px]">Chưa có</span>
                         )}
                       </td>
 
                       {/* Rank */}
-                      <td className="px-3 py-2.5 text-center">
+                      <td className="px-2 py-1 text-center">
                         {studentSummary.rank !== null ? (
                           <span
-                            className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-black text-xs shadow-2xs ${
+                            className={`inline-flex items-center justify-center w-5 h-5 rounded-full font-black text-[11px] ${
                               studentSummary.rank === 1
                                 ? 'bg-amber-400 text-amber-950'
                                 : studentSummary.rank === 2

@@ -38,7 +38,7 @@ interface BoardViewProps {
   onUpdateNotice?: (notice: BoardNotice) => void;
   onUpdateSeatingChart: (newChart: Record<string, string>) => void;
   onUpdateSeatingLayout?: (layout: SeatingLayout) => void;
-  onSelectStudent: (studentId: string) => void;
+  onSelectStudent: (studentId: string, month?: string) => void;
   isTeacher: boolean;
   currentStudentId?: string | null;
   initialTab?: 'notices' | 'seating' | 'rankings';
@@ -483,7 +483,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
                   {topAcademicStudents.map((s) => (
                     <li
                       key={s.studentId}
-                      onClick={() => onSelectStudent(s.studentId)}
+                      onClick={() => onSelectStudent(s.studentId, selectedMonth)}
                       className="flex items-center gap-2.5 p-2 rounded-xl bg-blue-50/40 hover:bg-blue-100/50 transition-colors cursor-pointer"
                     >
                       <div className="w-6 h-6 rounded-full bg-amber-400 text-amber-950 font-black flex items-center justify-center text-xs shrink-0 shadow-2xs">
@@ -615,7 +615,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
                   {topAcademicStudents.map((s) => (
                     <li
                       key={s.studentId}
-                      onClick={() => onSelectStudent(s.studentId)}
+                      onClick={() => onSelectStudent(s.studentId, selectedMonth)}
                       className="flex items-center gap-3 bg-white p-3 rounded-xl border border-blue-100 shadow-2xs hover:shadow-xs transition-shadow cursor-pointer"
                     >
                       <div className="w-7 h-7 rounded-full bg-amber-400 text-amber-950 font-black flex items-center justify-center text-xs shrink-0 shadow-2xs">

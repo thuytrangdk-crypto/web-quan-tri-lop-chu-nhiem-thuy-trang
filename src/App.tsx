@@ -26,7 +26,7 @@ import { ClassSwitchModal } from './components/ClassSwitchModal';
 import { SupabaseModal } from './components/SupabaseModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { supabaseService, SyncStatus, CLIENT_SESSION_ID } from './services/supabaseService';
-import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Menu } from 'lucide-react';
 
 const STORAGE_KEY = 'so_chu_nhiem_8a3_data';
 const SESSION_AUTH_KEY = 'scn_session_auth';
@@ -104,6 +104,19 @@ export default function App() {
     return 'dashboard';
   });
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [selectedStudentMonth, setSelectedStudentMonth] = useState<string | null>(null);
+  const [selectedStudentYear, setSelectedStudentYear] = useState<string | null>(null);
+
+  const handleOpenStudentProfile = (studentId: string, month?: string, year?: string) => {
+    if (authRole === 'teacher' || studentId === authStudentId) {
+      setSelectedStudentId(studentId);
+      if (month) setSelectedStudentMonth(month);
+      if (year) setSelectedStudentYear(year);
+    } else {
+      showToast('Bảo mật: Bạn chỉ có thể xem hồ sơ của chính mình!', 'error');
+    }
+  };
+
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isClassSwitchOpen, setIsClassSwitchOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
@@ -847,6 +860,61 @@ export default function App() {
     showToast(`Đã công bố vinh danh Top 5 học tập Tháng ${Number(m)}/${y}!`, 'success');
   };
 
+  const handleSaveStudentAcademicGrades = (
+    studentId: string,
+    month: string,
+    grades: Record<string, number | undefined>
+  ) => {
+    updateAppState((prev) => {
+      const clsName = prev.config.className;
+      const yr = prev.config.schoolYear;
+      const currentList = [...(prev.academicGrades || [])];
+      const now = new Date().toISOString();
+
+      Object.entries(grades).forEach(([subject, score]) => {
+        const cleanSub = subject.trim();
+        const existingIdx = currentList.findIndex(
+          (g) =>
+            g.studentId === studentId &&
+            g.month === month &&
+            g.subject.trim() === cleanSub &&
+            (!g.className || g.className === clsName)
+        );
+
+        if (score !== undefined && typeof score === 'number' && !isNaN(score)) {
+          if (existingIdx >= 0) {
+            currentList[existingIdx] = {
+              ...currentList[existingIdx],
+              score,
+              className: clsName,
+              schoolYear: yr,
+              updatedAt: now,
+            };
+          } else {
+            currentList.push({
+              id: `mg_${studentId}_${month}_${Math.random().toString(36).substring(2, 7)}`,
+              className: clsName,
+              schoolYear: yr,
+              month,
+              studentId,
+              subject: cleanSub,
+              score,
+              updatedAt: now,
+            });
+          }
+        } else if (existingIdx >= 0 && (score === undefined || isNaN(score as any))) {
+          currentList.splice(existingIdx, 1);
+        }
+      });
+
+      return {
+        ...prev,
+        academicGrades: currentList,
+      };
+    });
+    showToast('Đã lưu điểm học tập của học sinh');
+  };
+
   // Page titles
   const pageTitles: Record<string, string> = {
     dashboard: 'Tổng quan Lớp học',
@@ -879,6 +947,7 @@ export default function App() {
             onNavigate={(view) => setCurrentView(view)}
             className={state.config.className}
             classAvatar={state.config.classAvatar}
+            teacherName={state.config.teacherName}
             isTeacher={authRole === 'teacher'}
             studentName={state.students.find((s) => s.id === authStudentId)?.name}
             onUpdateClassAvatar={(base64) =>
@@ -891,72 +960,66 @@ export default function App() {
             onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
             onOpenChangePassword={() => setIsTeacherPasswordModalOpen(true)}
             onOpenMyProfile={() => {
-              if (authStudentId) setSelectedStudentId(authStudentId);
+              if (authStudentId) handleOpenStudentProfile(authStudentId);
             }}
             syncStatus={syncStatus}
           />
 
-          <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-            <Header
-              title={pageTitles[currentView] || 'Trợ lý chủ nhiệm'}
-              className={state.config.className}
-              teacherName={state.config.teacherName}
-              classAvatar={state.config.classAvatar}
-              onUpdateClassAvatar={(base64) =>
-                handleUpdateConfig({ classAvatar: base64 })
-              }
-              isTeacher={authRole === 'teacher'}
-              studentName={state.students.find((s) => s.id === authStudentId)?.name}
-              syncStatus={syncStatus}
-              onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
-              onOpenClassSwitch={() => setIsClassSwitchOpen(true)}
-              onGoHome={() => setCurrentView(authRole === 'teacher' ? 'dashboard' : 'board')}
-              onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
-              onOpenChangePassword={() => setIsTeacherPasswordModalOpen(true)}
-              onOpenMyProfile={() => {
-                if (authStudentId) setSelectedStudentId(authStudentId);
-              }}
-              onLogout={handleLogout}
-            />
-
-            <main className="flex-1 overflow-y-auto p-4 lg:p-8 bg-gray-50/60 custom-scrollbar">
-              {authRole === 'teacher' && currentView === 'dashboard' && (
-                <DashboardView
-                  state={state}
-                  isTeacher={authRole === 'teacher'}
-                  currentStudentId={authStudentId}
-                  onSelectStudent={(id) => {
-                    if (authRole === 'teacher' || id === authStudentId) {
-                      setSelectedStudentId(id);
-                    } else {
-                      showToast('Bảo mật: Bạn chỉ có thể xem hồ sơ của chính mình!', 'error');
-                    }
-                  }}
-                  onNavigate={(view) => setCurrentView(view)}
-                  onShowToast={showToast}
+          <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative">
+            {/* Slim mobile-only bar to open drawer (strictly on mobile, hidden on md+) */}
+            <div className="md:hidden h-11 bg-white border-b border-gray-200 flex items-center justify-between px-3 shrink-0 z-20">
+              <button
+                type="button"
+                onClick={() => setIsMobileSidebarOpen(true)}
+                className="p-1.5 -ml-1 text-gray-700 hover:bg-gray-100 rounded-lg flex items-center gap-2 text-xs font-bold cursor-pointer"
+                aria-label="Mở menu"
+              >
+                <Menu className="w-5 h-5 text-gray-700" />
+                <span className="font-black text-gray-900">Lớp {state.config.className}</span>
+              </button>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    syncStatus.isTableReady ? 'bg-emerald-500' : 'bg-amber-400'
+                  }`}
                 />
+                <span className="text-[11px] font-bold text-gray-500">
+                  {pageTitles[currentView] || 'Trợ lý'}
+                </span>
+              </div>
+            </div>
+
+            {/* Main content viewport: expands to bottom without wasted top header */}
+            <main className="flex-1 min-h-0 flex flex-col overflow-hidden p-2 sm:p-3 lg:p-4 bg-gray-50/60">
+              {authRole === 'teacher' && currentView === 'dashboard' && (
+                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+                  <DashboardView
+                    state={state}
+                    isTeacher={authRole === 'teacher'}
+                    currentStudentId={authStudentId}
+                    onSelectStudent={(id) => handleOpenStudentProfile(id)}
+                    onNavigate={(view) => setCurrentView(view)}
+                    onShowToast={showToast}
+                  />
+                </div>
               )}
 
               {authRole === 'teacher' && currentView === 'students' && (
-                <StudentsView
-                  state={state}
-                  onSelectStudent={(id) => {
-                    if (authRole === 'teacher' || id === authStudentId) {
-                      setSelectedStudentId(id);
-                    } else {
-                      showToast('Bảo mật: Bạn chỉ có quyền xem chi tiết hồ sơ của chính mình!', 'error');
-                    }
-                  }}
-                  onAddStudent={handleAddStudent}
-                  onUpdateStudent={handleUpdateStudent}
-                  onDeleteStudent={handleDeleteStudent}
-                  onBatchImportStudents={handleBatchImportStudents}
-                  onRemoveSampleStudents={handleRemoveSampleStudents}
-                  onClearAllStudents={handleClearAllStudents}
-                  isTeacher={authRole === 'teacher'}
-                  currentStudentId={authStudentId}
-                  onShowToast={showToast}
-                />
+                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+                  <StudentsView
+                    state={state}
+                    onSelectStudent={(id) => handleOpenStudentProfile(id)}
+                    onAddStudent={handleAddStudent}
+                    onUpdateStudent={handleUpdateStudent}
+                    onDeleteStudent={handleDeleteStudent}
+                    onBatchImportStudents={handleBatchImportStudents}
+                    onRemoveSampleStudents={handleRemoveSampleStudents}
+                    onClearAllStudents={handleClearAllStudents}
+                    isTeacher={authRole === 'teacher'}
+                    currentStudentId={authStudentId}
+                    onShowToast={showToast}
+                  />
+                </div>
               )}
 
               {authRole === 'teacher' && currentView === 'academics' && (
@@ -967,71 +1030,63 @@ export default function App() {
                   onUpdateAcademicGrades={handleUpdateAcademicGrades}
                   onUpdateConfig={handleUpdateConfig}
                   onPublishHonors={handlePublishAcademicHonors}
-                  onSelectStudent={(id) => {
-                    setSelectedStudentId(id);
-                  }}
+                  onSelectStudent={(id, month) => handleOpenStudentProfile(id, month)}
                   onShowToast={showToast}
                 />
               )}
 
               {authRole === 'teacher' && currentView === 'attendance' && (
-                <AttendanceView
-                  state={state}
-                  onUpdateAttendanceStatus={handleUpdateAttendanceStatus}
-                  onMarkAllPresent={handleMarkAllPresent}
-                  onDeleteAttendanceByDate={handleResetStudentAttendance}
-                  onSaveNotice={() => showToast('Đã lưu dữ liệu điểm danh')}
-                  onSelectStudent={(id) => {
-                    if (authRole === 'teacher' || id === authStudentId) {
-                      setSelectedStudentId(id);
-                    } else {
-                      showToast('Bảo mật: Bạn chỉ có thể xem hồ sơ của chính mình!', 'error');
-                    }
-                  }}
-                  isTeacher={authRole === 'teacher'}
-                  currentStudentId={authStudentId}
-                  onShowToast={showToast}
-                />
+                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+                  <AttendanceView
+                    state={state}
+                    onUpdateAttendanceStatus={handleUpdateAttendanceStatus}
+                    onMarkAllPresent={handleMarkAllPresent}
+                    onDeleteAttendanceByDate={handleResetStudentAttendance}
+                    onSaveNotice={() => showToast('Đã lưu dữ liệu điểm danh')}
+                    onSelectStudent={(id) => handleOpenStudentProfile(id)}
+                    isTeacher={authRole === 'teacher'}
+                    currentStudentId={authStudentId}
+                    onShowToast={showToast}
+                  />
+                </div>
               )}
 
               {(currentView === 'board' ||
                 currentView === 'board_notices' ||
                 currentView === 'board_seating') && (
-                <BoardView
-                  state={state}
-                  initialTab={
-                    currentView === 'board_seating' ? 'seating' : 'notices'
-                  }
-                  onAddNotice={handleAddNotice}
-                  onDeleteNotice={handleDeleteNotice}
-                  onUpdateNotice={handleUpdateNotice}
-                  onUpdateSeatingChart={handleUpdateSeatingChart}
-                  onUpdateSeatingLayout={handleUpdateSeatingLayout}
-                  onSelectStudent={(id) => {
-                    if (authRole === 'teacher' || id === authStudentId) {
-                      setSelectedStudentId(id);
-                    } else {
-                      showToast('Bảo mật: Bạn chỉ có thể xem hồ sơ của chính mình!', 'error');
+                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+                  <BoardView
+                    state={state}
+                    initialTab={
+                      currentView === 'board_seating' ? 'seating' : 'notices'
                     }
-                  }}
-                  isTeacher={authRole === 'teacher'}
-                  currentStudentId={authStudentId}
-                  onPublishHonors={handlePublishAcademicHonors}
-                  onShowToast={showToast}
-                />
+                    onAddNotice={handleAddNotice}
+                    onDeleteNotice={handleDeleteNotice}
+                    onUpdateNotice={handleUpdateNotice}
+                    onUpdateSeatingChart={handleUpdateSeatingChart}
+                    onUpdateSeatingLayout={handleUpdateSeatingLayout}
+                    onSelectStudent={(id: string, month?: string) => handleOpenStudentProfile(id, month)}
+                    isTeacher={authRole === 'teacher'}
+                    currentStudentId={authStudentId}
+                    onPublishHonors={handlePublishAcademicHonors}
+                    onShowToast={showToast}
+                  />
+                </div>
               )}
 
               {authRole === 'teacher' && currentView === 'settings' && (
-                <SettingsView
-                  state={state}
-                  onUpdateConfig={handleUpdateConfig}
-                  onResetData={handleResetData}
-                  onClearAllData={handleClearAllData}
-                  onImportBackup={handleImportBackup}
-                  onShowToast={showToast}
-                  syncStatus={syncStatus}
-                  onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
-                />
+                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+                  <SettingsView
+                    state={state}
+                    onUpdateConfig={handleUpdateConfig}
+                    onResetData={handleResetData}
+                    onClearAllData={handleClearAllData}
+                    onImportBackup={handleImportBackup}
+                    onShowToast={showToast}
+                    syncStatus={syncStatus}
+                    onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
+                  />
+                </div>
               )}
             </main>
           </div>
@@ -1078,8 +1133,12 @@ export default function App() {
               studentId={selectedStudentId}
               state={state}
               isTeacher={authRole === 'teacher'}
+              initialMonth={selectedStudentMonth || undefined}
+              initialYear={selectedStudentYear || undefined}
               onClose={() => {
                 setSelectedStudentId(null);
+                setSelectedStudentMonth(null);
+                setSelectedStudentYear(null);
                 if (authRole === 'student') {
                   setCurrentView('board');
                 }
@@ -1090,6 +1149,7 @@ export default function App() {
               }}
               onUpdateAvatar={handleUpdateAvatar}
               onSaveGrades={handleSaveGrades}
+              onSaveAcademicGrades={handleSaveStudentAcademicGrades}
               onAddDiscipline={handleAddDiscipline}
               onDeleteDiscipline={handleDeleteDiscipline}
               onDeleteAttendance={handleDeleteAttendance}

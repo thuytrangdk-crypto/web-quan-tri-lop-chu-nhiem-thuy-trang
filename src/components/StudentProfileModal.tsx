@@ -110,8 +110,44 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const [locallyDeletedDisciplineIds, setLocallyDeletedDisciplineIds] = useState<string[]>([]);
   const [locallyDeletedNoteIds, setLocallyDeletedNoteIds] = useState<string[]>([]);
 
+  const student = useMemo(() => {
+    return state.students.find((s) => s.id === studentId);
+  }, [state.students, studentId]);
+
+  // Find all distinct months recorded for this student
+  const studentRecordedMonths = useMemo(() => {
+    if (!student) return [];
+    const sId = (student.id || '').trim();
+    const months = new Set<string>();
+    (state.academicGrades || []).forEach((g) => {
+      if ((g.studentId || '').trim() === sId && g.month) {
+        months.add(g.month.trim());
+      }
+    });
+    // Also include class-level months if student records empty
+    if (months.size === 0) {
+      (state.academicGrades || []).forEach((g) => {
+        if (g.month) months.add(g.month.trim());
+      });
+    }
+    return Array.from(months).sort().reverse();
+  }, [student, state.academicGrades]);
+
   // Academic month & year state
-  const [academicMonth, setAcademicMonth] = useState<string>(initialMonth || getCurrentMonthStr());
+  const [academicMonth, setAcademicMonth] = useState<string>(() => {
+    if (initialMonth) return initialMonth;
+    const sId = (studentId || '').trim();
+    const hasStudentRecord = (state.academicGrades || []).filter(
+      (g) => (g.studentId || '').trim() === sId && g.month
+    );
+    if (hasStudentRecord.length > 0) {
+      const sorted = Array.from(new Set(hasStudentRecord.map((g) => g.month))).sort().reverse();
+      if (sorted[0]) return sorted[0];
+    }
+    const classMonths = Array.from(new Set((state.academicGrades || []).map((g) => g.month))).sort().reverse();
+    if (classMonths[0]) return classMonths[0];
+    return getCurrentMonthStr();
+  });
   const [academicYear, setAcademicYear] = useState<string>(
     initialYear || state.config.schoolYear || '2026-2027'
   );
@@ -119,8 +155,10 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   React.useEffect(() => {
     if (initialMonth) {
       setAcademicMonth(initialMonth);
+    } else if (studentRecordedMonths.length > 0 && (!academicMonth || !studentRecordedMonths.includes(academicMonth))) {
+      setAcademicMonth(studentRecordedMonths[0]);
     }
-  }, [initialMonth]);
+  }, [initialMonth, studentId]);
 
   React.useEffect(() => {
     if (initialYear) {
@@ -143,10 +181,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const detailSectionRef = useRef<HTMLDivElement>(null);
-
-  const student = useMemo(() => {
-    return state.students.find((s) => s.id === studentId);
-  }, [state.students, studentId]);
 
   // Sync tempGrades from state.academicGrades for the selected academicMonth & academicYear
   React.useEffect(() => {
@@ -781,7 +815,27 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-start">
+                    <div className="flex items-center gap-2 flex-wrap self-stretch sm:self-auto justify-between sm:justify-start">
+                      {/* Quick recorded month buttons */}
+                      {studentRecordedMonths.map((mStr) => {
+                        const [mY, mM] = mStr.split('-');
+                        const isSel = mStr === academicMonth;
+                        return (
+                          <button
+                            key={mStr}
+                            type="button"
+                            onClick={() => setAcademicMonth(mStr)}
+                            className={`px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                              isSel
+                                ? 'bg-blue-600 text-white shadow-2xs'
+                                : 'bg-white text-gray-700 hover:bg-blue-50 border border-gray-200'
+                            }`}
+                          >
+                            T{Number(mM)}/{mY}
+                          </button>
+                        );
+                      })}
+
                       {/* Month selector */}
                       <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-blue-300 shadow-2xs">
                         <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
