@@ -27,6 +27,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
+  FileSpreadsheet,
 } from 'lucide-react';
 import {
   AppState,
@@ -48,6 +49,7 @@ import {
   getStudentAcademicHistory,
   parseGradeValue,
 } from '../utils/academicHelpers';
+import { exportStudentViolationsToExcel } from '../utils/violationExcelHelper';
 import { PrintReportModal } from './PrintReportModal';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import { ConfirmModal } from './ConfirmModal';
@@ -368,6 +370,37 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     // Automatically switch to 'all' so the teacher immediately sees the newly saved incident in the table
     setSelectedDisciplineMonth('all');
     onShowToast(`Đã lưu ghi nhận: ${rule.name} (${rule.type === 'plus' ? `+${rule.points}` : `-${rule.points}`}đ)`);
+  };
+
+  const handleExportViolationsExcel = () => {
+    if (!isTeacher) {
+      onShowToast('Chỉ giáo viên mới có quyền xuất báo cáo vi phạm học sinh.', 'error');
+      return;
+    }
+
+    if (!student) {
+      onShowToast('Không tìm thấy thông tin học sinh để xuất.', 'error');
+      return;
+    }
+
+    const res = exportStudentViolationsToExcel({
+      student,
+      className: state.config.className || 'Lớp',
+      schoolYear: academicYear || state.config.schoolYear || '2026-2027',
+      teacherName: state.config.teacherName || 'Giáo viên chủ nhiệm',
+      appName: state.config.appName || 'TRỢ LÝ CHỦ NHIỆM',
+      selectedMonth: selectedDisciplineMonth,
+      violations: studentDiscipline,
+    });
+
+    if (!res.success) {
+      onShowToast(res.message || 'Học sinh không có vi phạm trong thời gian đã chọn', 'error');
+    } else {
+      onShowToast(
+        `Đã xuất Excel thành công: ${res.count} lỗi vi phạm (Tổng điểm trừ: ${res.totalPoints}đ)`,
+        'success'
+      );
+    }
   };
 
   const handleCreateNote = (e: React.FormEvent) => {
@@ -1151,26 +1184,56 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     } space-y-4`}
                   >
                     {/* Filter bar */}
-                    <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <div>
-                        <label className="text-[11px] font-bold text-gray-400 uppercase block mb-1">
-                          Kỳ đánh giá (Tháng)
-                        </label>
-                        <select
-                          value={selectedDisciplineMonth}
-                          onChange={(e) => setSelectedDisciplineMonth(e.target.value)}
-                          className="border border-gray-300 rounded-xl px-3 py-1.5 text-xs font-bold bg-white outline-none cursor-pointer"
-                        >
-                          <option value="all">Tất cả thời gian</option>
-                          {disciplineMonths.map((m) => {
-                            const [y, mo] = m.split('-');
-                            return (
-                              <option key={m} value={m}>
-                                Tháng {mo}/{y}
-                              </option>
-                            );
-                          })}
-                        </select>
+                    <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2.5">
+                        <div>
+                          <label className="text-[11px] font-bold text-gray-400 uppercase block mb-1">
+                            Kỳ đánh giá (Tháng)
+                          </label>
+                          <select
+                            value={selectedDisciplineMonth}
+                            onChange={(e) => setSelectedDisciplineMonth(e.target.value)}
+                            className="w-full sm:w-auto border border-gray-300 rounded-xl px-3 py-1.5 text-xs font-bold bg-white outline-none cursor-pointer"
+                          >
+                            <option value="all">Tất cả thời gian</option>
+                            {disciplineMonths.map((m) => {
+                              const [y, mo] = m.split('-');
+                              return (
+                                <option key={m} value={m}>
+                                  Tháng {mo}/{y}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+
+                        {/* Nút Xuất Excel vi phạm (Giáo viên) */}
+                        {isTeacher && (
+                          <button
+                            type="button"
+                            onClick={handleExportViolationsExcel}
+                            className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 font-bold rounded-xl text-xs border border-emerald-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs whitespace-nowrap"
+                            title={`Xuất báo cáo Excel vi phạm của học sinh (${
+                              selectedDisciplineMonth === 'all'
+                                ? 'Tất cả thời gian'
+                                : (() => {
+                                    const [y, mo] = selectedDisciplineMonth.split('-');
+                                    return `Tháng ${Number(mo)}/${y}`;
+                                  })()
+                            })`}
+                          >
+                            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>Xuất Excel vi phạm</span>
+                            <span className="text-[10px] font-medium text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded-md hidden md:inline">
+                              {selectedDisciplineMonth === 'all'
+                                ? 'Tất cả'
+                                : (() => {
+                                    const [y, mo] = selectedDisciplineMonth.split('-');
+                                    return `T${Number(mo)}/${y}`;
+                                  })()}
+                            </span>
+                          </button>
+                        )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-6">
