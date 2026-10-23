@@ -18,6 +18,12 @@ import {
   X,
   GraduationCap,
   BookOpen,
+  ExternalLink,
+  Play,
+  FileText,
+  ChevronLeft,
+  ChevronRight,
+  Video as VideoIcon,
 } from 'lucide-react';
 import { AppState, BoardNotice, NoticeType, SeatingLayout } from '../types';
 import {
@@ -27,6 +33,13 @@ import {
   triggerConfetti,
 } from '../utils/helpers';
 import { getTop5AcademicHonors } from '../utils/academicHelpers';
+import {
+  getYouTubeEmbedUrl,
+  getGoogleDriveVideoEmbed,
+  isDirectVideoFile,
+  sanitizeUrl,
+  extractDomain,
+} from '../utils/mediaHelpers';
 import { BoardNoticeModal } from './BoardNoticeModal';
 import { ConfirmModal } from './ConfirmModal';
 import { SeatingChartView } from './SeatingChartView';
@@ -67,7 +80,11 @@ export const BoardView: React.FC<BoardViewProps> = ({
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
   const [noticeToEdit, setNoticeToEdit] = useState<BoardNotice | null>(null);
   const [noticeToDelete, setNoticeToDelete] = useState<string | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{
+    images: string[];
+    index: number;
+    title: string;
+  } | null>(null);
 
   React.useEffect(() => {
     if (initialTab) {
@@ -148,7 +165,11 @@ export const BoardView: React.FC<BoardViewProps> = ({
     type: NoticeType,
     noticeId?: string,
     date?: string,
-    image?: string
+    image?: string,
+    images?: string[],
+    videoUrl?: string,
+    linkUrl?: string,
+    linkTitle?: string
   ) => {
     const noticeDate = date || new Date().toISOString().split('T')[0];
     if (noticeId && noticeToEdit && onUpdateNotice) {
@@ -159,6 +180,10 @@ export const BoardView: React.FC<BoardViewProps> = ({
         type,
         date: noticeDate,
         image,
+        images,
+        videoUrl,
+        linkUrl,
+        linkTitle,
       });
       onShowToast?.('Đã thay đổi thông tin đã đăng thành công');
     } else {
@@ -168,6 +193,10 @@ export const BoardView: React.FC<BoardViewProps> = ({
         content,
         type,
         image,
+        images,
+        videoUrl,
+        linkUrl,
+        linkTitle,
       });
       onShowToast?.('Đã đăng thông tin mới lên bảng tin');
     }
@@ -183,9 +212,9 @@ export const BoardView: React.FC<BoardViewProps> = ({
     <div className="space-y-4 max-w-7xl mx-auto h-full flex flex-col pb-10 animate-fadeIn">
       {/* Student Welcome & Quick Actions Banner */}
       {!isTeacher && loggedStudent && (
-        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 rounded-3xl p-4 sm:p-5 text-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="bg-gradient-to-r from-[#0284c7] via-[#38bdf8] to-[#a7dff6] rounded-3xl p-4 sm:p-5 text-white shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-[#a7dff6]/50">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-lg shadow-inner overflow-hidden border border-white/30">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-lg shadow-inner overflow-hidden border border-white/30 text-white">
               {loggedStudent.avatar ? (
                 <img
                   src={loggedStudent.avatar}
@@ -198,12 +227,12 @@ export const BoardView: React.FC<BoardViewProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/25 text-white">
+                <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-[#d7effb] text-sky-950 border border-[#a7dff6]">
                   Học sinh Lớp {state.config.className}
                 </span>
-                <span className="text-xs text-blue-100">Năm học {state.config.schoolYear}</span>
+                <span className="text-xs text-sky-100 font-medium">Năm học {state.config.schoolYear}</span>
               </div>
-              <h2 className="text-base sm:text-lg font-black tracking-tight mt-0.5 uppercase">
+              <h2 className="text-base sm:text-lg font-black tracking-tight mt-0.5 uppercase drop-shadow-2xs">
                 {loggedStudent.name}
               </h2>
             </div>
@@ -212,9 +241,9 @@ export const BoardView: React.FC<BoardViewProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => onSelectStudent(loggedStudent.id)}
-              className="px-4 py-2 bg-white text-blue-700 hover:bg-blue-50 font-bold rounded-xl text-xs sm:text-sm shadow-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+              className="px-4 py-2 bg-white text-sky-950 hover:bg-[#d7effb] font-bold rounded-xl text-xs sm:text-sm shadow-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap border border-[#a7dff6]"
             >
-              <UserCheck className="w-4 h-4 text-blue-600" />
+              <UserCheck className="w-4 h-4 text-[#0284c7]" />
               <span>Xem Hồ sơ của tôi</span>
             </button>
           </div>
@@ -228,8 +257,8 @@ export const BoardView: React.FC<BoardViewProps> = ({
             onClick={() => setBoardSubTab('notices')}
             className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               boardSubTab === 'notices'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-gray-600 hover:bg-gray-100'
+                ? 'bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] text-white shadow-2xs font-black'
+                : 'text-gray-700 hover:bg-[#d7effb]/40 hover:text-sky-950'
             }`}
           >
             <Megaphone className="w-4 h-4" />
@@ -240,8 +269,8 @@ export const BoardView: React.FC<BoardViewProps> = ({
             onClick={() => setBoardSubTab('seating')}
             className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               boardSubTab === 'seating'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-gray-600 hover:bg-gray-100'
+                ? 'bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] text-white shadow-2xs font-black'
+                : 'text-gray-700 hover:bg-[#d7effb]/40 hover:text-sky-950'
             }`}
           >
             <Grid3X3 className="w-4 h-4" />
@@ -252,8 +281,8 @@ export const BoardView: React.FC<BoardViewProps> = ({
             onClick={() => setBoardSubTab('rankings')}
             className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               boardSubTab === 'rankings'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-gray-600 hover:bg-gray-100'
+                ? 'bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] text-white shadow-2xs font-black'
+                : 'text-gray-700 hover:bg-[#d7effb]/40 hover:text-sky-950'
             }`}
           >
             <Trophy className="w-4 h-4" />
@@ -267,7 +296,7 @@ export const BoardView: React.FC<BoardViewProps> = ({
               setNoticeToEdit(null);
               setIsNoticeModalOpen(true);
             }}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+            className="px-4 py-2 bg-[#0284c7] hover:bg-[#0369a1] text-white font-bold rounded-xl text-xs sm:text-sm shadow-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
             <span>Đăng thông tin mới</span>
@@ -398,25 +427,241 @@ export const BoardView: React.FC<BoardViewProps> = ({
                           {notice.content}
                         </p>
 
-                        {/* Attached Image */}
-                        {notice.image && (
-                          <div className="mt-3.5 overflow-hidden rounded-2xl border border-gray-200/80 bg-slate-900/5 group/img relative max-h-72">
-                            <img
-                              src={notice.image}
-                              alt={notice.title}
-                              className="w-full max-h-72 object-cover sm:object-contain cursor-pointer transition-transform duration-200 group-hover/img:scale-[1.01]"
-                              onClick={() => setPreviewImage(notice.image || null)}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setPreviewImage(notice.image || null)}
-                              className="absolute bottom-2.5 right-2.5 px-2.5 py-1 bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white text-[11px] font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer opacity-90 hover:opacity-100 transition-opacity"
-                            >
-                              <ImageIcon className="w-3.5 h-3.5" />
-                              <span>Phóng to ảnh</span>
-                            </button>
-                          </div>
-                        )}
+                        {/* Attached Multimedia (Multiple images, Video, or Link) */}
+                        {(() => {
+                          const noticeImages =
+                            notice.images && notice.images.length > 0
+                              ? notice.images
+                              : notice.image
+                              ? [notice.image]
+                              : [];
+                          const ytEmbed = notice.videoUrl
+                            ? getYouTubeEmbedUrl(notice.videoUrl)
+                            : null;
+                          const driveEmbed = notice.videoUrl
+                            ? getGoogleDriveVideoEmbed(notice.videoUrl)
+                            : null;
+                          const isDirectVideo = notice.videoUrl
+                            ? isDirectVideoFile(notice.videoUrl)
+                            : false;
+
+                          return (
+                            <div className="space-y-3">
+                              {/* 1. Multiple Images Gallery */}
+                              {noticeImages.length === 1 && (
+                                <div className="mt-3.5 overflow-hidden rounded-2xl border border-gray-200/80 bg-slate-900/5 group/img relative max-h-72">
+                                  <img
+                                    src={noticeImages[0]}
+                                    alt={notice.title}
+                                    className="w-full max-h-72 object-cover sm:object-contain cursor-pointer transition-transform duration-200 group-hover/img:scale-[1.01]"
+                                    onClick={() =>
+                                      setLightbox({
+                                        images: noticeImages,
+                                        index: 0,
+                                        title: notice.title,
+                                      })
+                                    }
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setLightbox({
+                                        images: noticeImages,
+                                        index: 0,
+                                        title: notice.title,
+                                      })
+                                    }
+                                    className="absolute bottom-2.5 right-2.5 px-2.5 py-1 bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white text-[11px] font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer opacity-90 hover:opacity-100 transition-opacity"
+                                  >
+                                    <ImageIcon className="w-3.5 h-3.5" />
+                                    <span>Phóng to ảnh</span>
+                                  </button>
+                                </div>
+                              )}
+
+                              {noticeImages.length === 2 && (
+                                <div className="mt-3.5 grid grid-cols-2 gap-2">
+                                  {noticeImages.map((imgSrc, idx) => (
+                                    <div
+                                      key={idx}
+                                      onClick={() =>
+                                        setLightbox({
+                                          images: noticeImages,
+                                          index: idx,
+                                          title: notice.title,
+                                        })
+                                      }
+                                      className="rounded-2xl overflow-hidden border border-gray-200/80 bg-slate-900/5 aspect-4/3 relative group/img cursor-pointer"
+                                    >
+                                      <img
+                                        src={imgSrc}
+                                        alt={`${notice.title} ${idx + 1}`}
+                                        className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-200"
+                                      />
+                                      <span className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold rounded-lg opacity-90">
+                                        Ảnh {idx + 1}/2
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {noticeImages.length === 3 && (
+                                <div className="mt-3.5 grid grid-cols-3 gap-2">
+                                  {noticeImages.map((imgSrc, idx) => (
+                                    <div
+                                      key={idx}
+                                      onClick={() =>
+                                        setLightbox({
+                                          images: noticeImages,
+                                          index: idx,
+                                          title: notice.title,
+                                        })
+                                      }
+                                      className="rounded-2xl overflow-hidden border border-gray-200/80 bg-slate-900/5 aspect-square relative group/img cursor-pointer"
+                                    >
+                                      <img
+                                        src={imgSrc}
+                                        alt={`${notice.title} ${idx + 1}`}
+                                        className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-200"
+                                      />
+                                      <span className="absolute bottom-2 right-2 px-1.5 py-0.2 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold rounded">
+                                        {idx + 1}/3
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {noticeImages.length >= 4 && (
+                                <div className="mt-3.5 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                  {noticeImages.slice(0, 4).map((imgSrc, idx) => {
+                                    const isFourth = idx === 3;
+                                    const extraCount = noticeImages.length - 4;
+                                    return (
+                                      <div
+                                        key={idx}
+                                        onClick={() =>
+                                          setLightbox({
+                                            images: noticeImages,
+                                            index: idx,
+                                            title: notice.title,
+                                          })
+                                        }
+                                        className="rounded-2xl overflow-hidden border border-gray-200/80 bg-slate-900/5 aspect-square relative group/img cursor-pointer"
+                                      >
+                                        <img
+                                          src={imgSrc}
+                                          alt={`${notice.title} ${idx + 1}`}
+                                          className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-200"
+                                        />
+                                        {isFourth && extraCount > 0 ? (
+                                          <div className="absolute inset-0 bg-black/60 backdrop-blur-2xs flex flex-col items-center justify-center text-white font-black text-sm hover:bg-black/70 transition-colors">
+                                            <span>+{extraCount} ảnh</span>
+                                            <span className="text-[10px] font-normal text-slate-200">
+                                              Xem tất cả ({noticeImages.length})
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.2 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold rounded">
+                                            #{idx + 1}
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {/* 2. Embedded Video */}
+                              {notice.videoUrl && (
+                                <div className="mt-3.5 rounded-2xl overflow-hidden border border-gray-200/80 bg-black shadow-xs">
+                                  {ytEmbed ? (
+                                    <div className="aspect-video w-full">
+                                      <iframe
+                                        src={ytEmbed}
+                                        title={notice.title}
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowFullScreen
+                                        className="w-full h-full border-0"
+                                      />
+                                    </div>
+                                  ) : driveEmbed ? (
+                                    <div className="aspect-video w-full">
+                                      <iframe
+                                        src={driveEmbed}
+                                        title={notice.title}
+                                        allow="autoplay"
+                                        allowFullScreen
+                                        className="w-full h-full border-0"
+                                      />
+                                    </div>
+                                  ) : isDirectVideo ? (
+                                    <video
+                                      src={sanitizeUrl(notice.videoUrl)}
+                                      controls
+                                      playsInline
+                                      className="w-full max-h-80 bg-black"
+                                    />
+                                  ) : (
+                                    <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between gap-3">
+                                      <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                                          <Play className="w-4 h-4 text-white" />
+                                        </div>
+                                        <div className="min-w-0">
+                                          <p className="text-xs font-bold text-white truncate">
+                                            Video đính kèm thông báo
+                                          </p>
+                                          <p className="text-[11px] text-slate-300 truncate">
+                                            {notice.videoUrl}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <a
+                                        href={sanitizeUrl(notice.videoUrl)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="px-3 py-1.5 bg-[#0284c7] hover:bg-[#0369a1] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                                      >
+                                        <span>Xem video</span>
+                                        <ExternalLink className="w-3.5 h-3.5" />
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* 3. Attached Web Link */}
+                              {notice.linkUrl && (
+                                <div className="mt-3.5 p-3 rounded-2xl bg-[#d7effb]/30 border border-[#a7dff6] flex items-center justify-between gap-3 hover:bg-[#d7effb]/50 transition-colors">
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="w-9 h-9 rounded-xl bg-[#d7effb] text-[#0284c7] border border-[#a7dff6] flex items-center justify-center shrink-0 shadow-2xs">
+                                      <ExternalLink className="w-4 h-4" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-black text-gray-900 truncate">
+                                        {notice.linkTitle || extractDomain(notice.linkUrl)}
+                                      </p>
+                                      <p className="text-[11px] text-[#0284c7] font-medium truncate">
+                                        {notice.linkUrl}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <a
+                                    href={sanitizeUrl(notice.linkUrl)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3 py-1.5 bg-[#0284c7] hover:bg-[#0369a1] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shrink-0 shadow-2xs transition-all cursor-pointer whitespace-nowrap"
+                                  >
+                                    <span>Mở liên kết</span>
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-400">
                           <span className="flex items-center gap-1">
@@ -726,26 +971,114 @@ export const BoardView: React.FC<BoardViewProps> = ({
         onCancel={() => setNoticeToDelete(null)}
       />
 
-      {/* Image Preview Lightbox Modal */}
-      {previewImage && (
+      {/* Multi-Image Interactive Lightbox Modal */}
+      {lightbox && lightbox.images.length > 0 && (
         <div
-          className="fixed inset-0 z-[160] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn"
-          onClick={() => setPreviewImage(null)}
+          className="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fadeIn"
+          onClick={() => setLightbox(null)}
         >
-          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
-            <button
-              onClick={() => setPreviewImage(null)}
-              className="absolute -top-12 right-0 bg-white/20 hover:bg-white/40 text-white rounded-full p-2 transition-colors cursor-pointer"
-              title="Đóng xem ảnh"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            <img
-              src={previewImage}
-              alt="Phóng to thông báo"
-              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/20"
-              onClick={(e) => e.stopPropagation()}
-            />
+          <div
+            className="relative max-w-5xl max-h-[92vh] w-full flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Bar inside modal */}
+            <div className="w-full flex items-center justify-between text-white pb-3 px-2">
+              <div className="min-w-0">
+                <p className="text-sm font-black truncate">{lightbox.title}</p>
+                <p className="text-xs text-slate-300 font-medium">
+                  Ảnh {lightbox.index + 1} trên {lightbox.images.length}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLightbox(null)}
+                className="bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors cursor-pointer"
+                title="Đóng xem ảnh"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Main Image Container */}
+            <div className="relative w-full flex items-center justify-center max-h-[76vh] overflow-hidden rounded-2xl bg-black/40">
+              <img
+                src={lightbox.images[lightbox.index]}
+                alt={`${lightbox.title} #${lightbox.index + 1}`}
+                className="max-w-full max-h-[76vh] object-contain rounded-xl shadow-2xl"
+              />
+
+              {/* Prev Button */}
+              {lightbox.images.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLightbox((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            index:
+                              (prev.index - 1 + prev.images.length) %
+                              prev.images.length,
+                          }
+                        : null
+                    )
+                  }
+                  className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/90 text-white p-2.5 rounded-full backdrop-blur-xs transition-all cursor-pointer shadow-lg hover:scale-105"
+                  title="Ảnh trước"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+              )}
+
+              {/* Next Button */}
+              {lightbox.images.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLightbox((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            index: (prev.index + 1) % prev.images.length,
+                          }
+                        : null
+                    )
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/90 text-white p-2.5 rounded-full backdrop-blur-xs transition-all cursor-pointer shadow-lg hover:scale-105"
+                  title="Ảnh tiếp theo"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              )}
+            </div>
+
+            {/* Thumbnail Navigation Bar for multi-images */}
+            {lightbox.images.length > 1 && (
+              <div className="flex items-center gap-2 mt-3 overflow-x-auto max-w-full py-1 px-2 custom-scrollbar">
+                {lightbox.images.map((thumbSrc, thumbIdx) => (
+                  <button
+                    key={thumbIdx}
+                    type="button"
+                    onClick={() =>
+                      setLightbox((prev) =>
+                        prev ? { ...prev, index: thumbIdx } : null
+                      )
+                    }
+                    className={`w-13 h-13 rounded-lg overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
+                      lightbox.index === thumbIdx
+                        ? 'border-[#38bdf8] scale-105 shadow-md'
+                        : 'border-white/30 opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <img
+                      src={thumbSrc}
+                      alt={`Thumbnail ${thumbIdx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -160,7 +160,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Tìm theo tên học sinh, số điện thoại, mã ID..."
-            className="w-full pl-10 pr-4 py-2.5 bg-gray-50/80 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-xs sm:text-sm font-medium"
+            className="w-full pl-10 pr-4 py-2.5 bg-gray-50/80 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:border-[#a7dff6] focus:bg-white transition-all text-xs sm:text-sm font-medium"
           />
         </div>
 
@@ -169,7 +169,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
           <select
             value={genderFilter}
             onChange={(e) => setGenderFilter(e.target.value as 'all' | Gender)}
-            className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium cursor-pointer"
+            className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#0284c7] focus:border-[#a7dff6] font-medium cursor-pointer"
           >
             <option value="all">Tất cả giới tính</option>
             <option value="Nam">Nam</option>
@@ -182,7 +182,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
               onClick={() => setViewMode('grid')}
               className={`p-2 rounded-lg transition-all cursor-pointer ${
                 viewMode === 'grid'
-                  ? 'bg-white shadow-xs text-blue-600'
+                  ? 'bg-white shadow-xs text-[#0284c7]'
                   : 'text-gray-400 hover:text-gray-700'
               }`}
               title="Dạng thẻ (Grid)"
@@ -193,7 +193,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
               onClick={() => setViewMode('list')}
               className={`p-2 rounded-lg transition-all cursor-pointer ${
                 viewMode === 'list'
-                  ? 'bg-white shadow-xs text-blue-600'
+                  ? 'bg-white shadow-xs text-[#0284c7]'
                   : 'text-gray-400 hover:text-gray-700'
               }`}
               title="Dạng bảng (List)"
@@ -205,7 +205,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
           {/* Export Excel */}
           <button
             onClick={() => exportStudentsToExcel(state.students, state.config.className)}
-            className="px-3 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold rounded-xl text-xs sm:text-sm border border-gray-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-3 py-2.5 bg-gray-50 hover:bg-[#d7effb]/30 text-gray-700 font-bold rounded-xl text-xs sm:text-sm border border-gray-200 hover:border-[#a7dff6] flex items-center gap-1.5 transition-colors cursor-pointer"
             title="Xuất file Excel"
           >
             <Download className="w-4 h-4 text-emerald-600" />
@@ -237,7 +237,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
               {/* Add Student */}
               <button
                 onClick={handleOpenAdd}
-                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md hover:shadow-blue-200 flex items-center gap-1.5 transition-all cursor-pointer"
+                className="px-4 py-2.5 bg-[#0284c7] hover:bg-[#0369a1] text-white font-bold rounded-xl text-xs sm:text-sm shadow-md hover:shadow-sky-200 flex items-center gap-1.5 transition-all cursor-pointer"
               >
                 <UserPlus className="w-4 h-4" />
                 <span>Thêm HS</span>

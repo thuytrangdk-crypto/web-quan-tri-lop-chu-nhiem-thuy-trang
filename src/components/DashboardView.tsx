@@ -100,21 +100,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="space-y-2.5 sm:space-y-3 max-w-7xl mx-auto pb-3 animate-fadeIn">
-      {/* 1. Welcome Banner: Compact Blue Ocean Gradient (100-115px) */}
-      <div className="bg-gradient-to-r from-blue-600 via-sky-600 to-cyan-600 rounded-xl p-3 sm:p-4 text-white shadow-sm relative overflow-hidden shrink-0">
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-white/10 transform skew-x-12 pointer-events-none" />
+      {/* 1. Welcome Banner: Harmonized Sky Blue Gradient with #d7effb & #a7dff6 */}
+      <div className="bg-gradient-to-r from-[#0284c7] via-[#38bdf8] to-[#a7dff6] rounded-xl p-3 sm:p-4 text-white shadow-xs relative overflow-hidden shrink-0 border border-[#a7dff6]/50">
+        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-white/15 transform skew-x-12 pointer-events-none" />
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg sm:text-xl font-black tracking-tight truncate leading-tight">
+            <h1 className="text-lg sm:text-xl font-black tracking-tight truncate leading-tight text-white drop-shadow-2xs">
               Trợ Lý Chủ Nhiệm • Lớp {state.config.className}
             </h1>
-            <p className="text-blue-50 text-xs sm:text-sm mt-0.5 font-medium truncate flex items-center gap-1.5 flex-wrap">
+            <p className="text-sky-50 text-xs sm:text-sm mt-0.5 font-medium truncate flex items-center gap-1.5 flex-wrap">
               <span>Giáo viên chủ nhiệm:</span>
               <strong className="text-white font-bold">{state.config.teacherName || 'Chưa thiết lập'}</strong>
             </p>
           </div>
           <div className="shrink-0 self-start sm:self-center">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-white/20 backdrop-blur-md rounded-lg text-xs font-bold text-white border border-white/20 shadow-2xs whitespace-nowrap">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-white/20 backdrop-blur-md rounded-lg text-xs font-bold text-white border border-white/30 shadow-2xs whitespace-nowrap">
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
               <span>Năm học {state.config.schoolYear}</span>
             </span>
@@ -127,13 +127,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 1: Sĩ số lớp */}
         <div
           onClick={() => onNavigate('students')}
-          className="bg-white p-3 rounded-xl shadow-2xs border border-gray-100 hover:shadow-xs hover:border-blue-200 transition-all cursor-pointer group flex flex-col justify-between h-[94px] sm:h-[98px]"
+          className="bg-white p-3 rounded-xl shadow-2xs border border-gray-100 hover:shadow-xs hover:border-[#a7dff6] transition-all cursor-pointer group flex flex-col justify-between h-[94px] sm:h-[98px]"
         >
           <div className="flex items-center justify-between gap-1">
             <span className="text-gray-500 font-bold text-xs sm:text-[13px] uppercase tracking-wider truncate">
               Sĩ số lớp
             </span>
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#d7effb] text-[#0369a1] border border-[#a7dff6]/70 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
               <Users className="w-4 h-4" />
             </div>
           </div>
@@ -142,7 +142,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               {totalStudents}
             </p>
             <p className="text-[11px] sm:text-xs text-gray-500 font-medium truncate mt-1">
-              <span className="text-blue-600 font-bold">{maleCount}</span> Nam ·{' '}
+              <span className="text-[#0284c7] font-bold">{maleCount}</span> Nam ·{' '}
               <span className="text-pink-600 font-bold">{femaleCount}</span> Nữ
             </p>
           </div>
@@ -167,7 +167,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </p>
             <p className="text-[11px] sm:text-xs text-gray-500 font-medium truncate mt-1">
               {absentToday === 0 ? (
-                <span className="text-emerald-600 font-bold">Đi học đầy đủ 100%</span>
+                <span className="text-[#0284c7] font-bold">Đi học đầy đủ 100%</span>
               ) : (
                 <span className="text-red-500 font-bold">Cần kiểm tra lý do</span>
               )}
@@ -201,13 +201,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Card 4: Khen thưởng */}
         <div
           onClick={() => onNavigate('board')}
-          className="bg-white p-3 rounded-xl shadow-2xs border border-gray-100 hover:shadow-xs hover:border-emerald-200 transition-all cursor-pointer group flex flex-col justify-between h-[94px] sm:h-[98px]"
+          className="bg-white p-3 rounded-xl shadow-2xs border border-gray-100 hover:shadow-xs hover:border-[#a7dff6] transition-all cursor-pointer group flex flex-col justify-between h-[94px] sm:h-[98px]"
         >
           <div className="flex items-center justify-between gap-1">
             <span className="text-gray-500 font-bold text-xs sm:text-[13px] uppercase tracking-wider truncate">
               Khen thưởng
             </span>
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#d7effb] text-[#0369a1] border border-[#a7dff6]/70 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
               <Award className="w-4 h-4" />
             </div>
           </div>
@@ -215,7 +215,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <p className="text-2xl sm:text-[26px] font-black text-gray-900 leading-none tracking-tight">
               {rewardsWeek}
             </p>
-            <p className="text-[11px] sm:text-xs text-emerald-600 font-bold truncate mt-1">
+            <p className="text-[11px] sm:text-xs text-[#0284c7] font-bold truncate mt-1">
               Lượt cộng điểm gương mẫu
             </p>
           </div>

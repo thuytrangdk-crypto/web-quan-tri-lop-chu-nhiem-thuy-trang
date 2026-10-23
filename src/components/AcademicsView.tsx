@@ -359,13 +359,13 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           {/* Left: Title + Badges + Note hint */}
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#0284c7] to-[#0ea5e9] text-white flex items-center justify-center shrink-0 shadow-xs">
               <BookOpen className="w-4 h-4" />
             </div>
             <h2 className="text-xs sm:text-sm font-black text-gray-900 tracking-tight uppercase whitespace-nowrap">
               BẢNG ĐIỂM HỌC TẬP
             </h2>
-            <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-extrabold text-[11px] border border-blue-200">
+            <span className="px-2 py-0.5 rounded-md bg-[#d7effb] text-sky-950 font-black text-[11px] border border-[#a7dff6]">
               Lớp {className}
             </span>
             <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200">
@@ -377,7 +377,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
               className="hidden lg:inline-flex items-center gap-1 text-[11px] text-gray-500 pl-2 border-l border-gray-200"
               title="Ghi chú: Trung bình cộng các môn theo tháng phục vụ theo dõi nội bộ, không gán thành kết quả học kỳ chính thức."
             >
-              <Info className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <Info className="w-3.5 h-3.5 text-[#0284c7] shrink-0" />
               <span className="truncate max-w-xs xl:max-w-md">
                 ĐTB theo tháng theo dõi nội bộ
               </span>
@@ -401,8 +401,8 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                   }}
                   className={`px-2 py-0.5 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
                     isSel
-                      ? 'bg-blue-600 text-white shadow-2xs'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      ? 'bg-[#0284c7] text-white shadow-2xs font-black'
+                      : 'bg-[#d7effb]/40 text-sky-950 hover:bg-[#a7dff6]/50 border border-[#a7dff6]/60'
                   }`}
                   title={`Xem điểm tháng ${Number(mM)}/${mY}`}
                 >
@@ -412,17 +412,17 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
             })}
 
             {/* Month input with arrows */}
-            <div className="flex items-center bg-gray-50 px-1 py-0.5 rounded-xl border border-gray-200">
+            <div className="flex items-center bg-white px-1 py-0.5 rounded-xl border border-[#a7dff6] shadow-2xs">
               <button
                 type="button"
                 onClick={handlePrevMonth}
-                className="p-1 rounded-lg hover:bg-white text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
+                className="p-1 rounded-lg hover:bg-[#d7effb]/30 text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
                 title="Tháng trước"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
               <div className="flex items-center gap-1 px-1">
-                <Calendar className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <Calendar className="w-3.5 h-3.5 text-[#0284c7] shrink-0" />
                 <input
                   type="month"
                   value={selectedMonth}
@@ -439,7 +439,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
               <button
                 type="button"
                 onClick={handleNextMonth}
-                className="p-1 rounded-lg hover:bg-white text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
+                className="p-1 rounded-lg hover:bg-[#d7effb]/30 text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
                 title="Tháng sau"
               >
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -497,7 +497,7 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Tìm theo tên học sinh, mã hồ sơ..."
-              className="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0284c7] focus:border-[#a7dff6]"
             />
           </div>
 
@@ -515,10 +515,10 @@ export const AcademicsView: React.FC<AcademicsViewProps> = ({
                     subjects
                   )
                 }
-                className="px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold rounded-lg text-[11px] border border-gray-200 flex items-center gap-1 cursor-pointer transition-colors"
+                className="px-2.5 py-1.5 bg-gray-50 hover:bg-[#d7effb]/30 text-gray-700 font-bold rounded-lg text-[11px] border border-gray-200 hover:border-[#a7dff6] flex items-center gap-1 cursor-pointer transition-colors"
                 title="Tải mẫu Excel đã điền sẵn danh sách học sinh của lớp"
               >
-                <Download className="w-3 h-3 text-blue-600" />
+                <Download className="w-3 h-3 text-[#0284c7]" />
                 <span>Tải mẫu Excel</span>
               </button>
 

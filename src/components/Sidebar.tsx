@@ -99,21 +99,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }`}
       >
         {/* APP INFO BLOCK AT TOP OF SIDEBAR */}
-        <div className="p-3.5 border-b border-gray-200 shrink-0 bg-slate-50/70">
+        <div className="p-3.5 border-b border-[#a7dff6]/70 shrink-0 bg-gradient-to-br from-[#d7effb]/50 to-[#a7dff6]/25">
           {/* Row 1: Logo + App Name + Close button on mobile */}
           <div className="flex items-center justify-between gap-2 mb-2">
             <div className="flex items-center gap-2.5 min-w-0">
               <div
                 onClick={() => isTeacher && onUpdateClassAvatar && fileInputRef.current?.click()}
                 className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden shadow-2xs relative group ${
-                  isTeacher && onUpdateClassAvatar ? 'cursor-pointer hover:ring-2 hover:ring-blue-400' : ''
+                  isTeacher && onUpdateClassAvatar ? 'cursor-pointer hover:ring-2 hover:ring-[#38bdf8]' : ''
                 }`}
                 title={isTeacher && onUpdateClassAvatar ? 'Bấm để đổi ảnh đại diện lớp' : `Lớp ${className}`}
               >
                 {classAvatar ? (
                   <img src={classAvatar} alt="Lớp" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-emerald-400 via-teal-500 to-blue-600 flex items-center justify-center text-white">
+                  <div className="w-full h-full bg-gradient-to-br from-[#0284c7] via-[#38bdf8] to-[#a7dff6] flex items-center justify-center text-white">
                     <GraduationCap className="w-5 h-5 text-white" />
                   </div>
                 )}
@@ -145,14 +145,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onOpenClassSwitch();
                       onCloseMobile();
                     }}
-                    className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-700 font-extrabold text-[11px] border border-blue-200 transition-colors cursor-pointer"
+                    className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#d7effb] hover:bg-[#a7dff6]/70 active:bg-[#a7dff6] text-sky-950 font-extrabold text-[11px] border border-[#a7dff6] shadow-2xs transition-colors cursor-pointer"
                     title="Bấm để đổi lớp hoặc năm học"
                   >
                     <span>Lớp {className}</span>
-                    <ChevronDown className="w-3 h-3 text-blue-600" />
+                    <ChevronDown className="w-3 h-3 text-sky-700" />
                   </button>
                 ) : (
-                  <span className="mt-1 inline-flex items-center px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 font-extrabold text-[11px] border border-blue-200">
+                  <span className="mt-1 inline-flex items-center px-2 py-0.5 rounded-lg bg-[#d7effb] text-sky-950 font-extrabold text-[11px] border border-[#a7dff6]">
                     Lớp {className}
                   </span>
                 )}
@@ -171,7 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Row 2: GVCN name */}
           <div className="text-[11px] font-semibold text-gray-600 truncate flex items-center gap-1.5 mb-2 px-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#0284c7] shrink-0" />
             <span className="text-gray-400 font-medium">GVCN:</span>
             <span className="text-gray-900 font-bold truncate">
               {teacherName || 'Chưa thiết lập'}
@@ -189,15 +189,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }}
             className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition-all cursor-pointer ${
               syncStatus?.isTableReady
-                ? 'bg-emerald-50/80 border-emerald-200 text-emerald-800 hover:bg-emerald-100/80'
+                ? 'bg-[#d7effb]/70 border-[#a7dff6] text-sky-950 hover:bg-[#a7dff6]/60 shadow-2xs'
                 : syncStatus?.isConnected
-                ? 'bg-amber-50/80 border-amber-200 text-amber-800 hover:bg-amber-100/80'
-                : 'bg-red-50/80 border-red-200 text-red-800 hover:bg-red-100/80'
+                ? 'bg-amber-50/80 border-amber-200 text-amber-900 hover:bg-amber-100/80'
+                : 'bg-red-50/80 border-red-200 text-red-900 hover:bg-red-100/80'
             }`}
             title="Bấm để kiểm tra đồng bộ Supabase Cloud"
           >
             <div className="flex items-center gap-1.5 truncate">
-              <Cloud className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+              <Cloud className="w-3.5 h-3.5 shrink-0 text-[#0284c7]" />
               <span className="truncate">
                 {syncStatus?.isTableReady
                   ? 'Supabase: Đã kết nối'
@@ -209,7 +209,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span
               className={`w-2 h-2 rounded-full shrink-0 ${
                 syncStatus?.isTableReady
-                  ? 'bg-emerald-500 animate-pulse'
+                  ? 'bg-[#0284c7] animate-pulse'
                   : syncStatus?.isConnected
                   ? 'bg-amber-400'
                   : 'bg-red-400'
@@ -241,13 +241,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-bold text-xs sm:text-sm transition-all text-left cursor-pointer ${
                   isActive
-                    ? 'bg-blue-50 text-blue-700 shadow-xs ring-1 ring-blue-100'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-gradient-to-r from-[#d7effb] to-[#a7dff6]/40 text-sky-950 font-black shadow-2xs border border-[#a7dff6]'
+                    : 'text-gray-600 hover:bg-[#d7effb]/30 hover:text-sky-900'
                 }`}
               >
                 <Icon
                   className={`w-5 h-5 ${
-                    isActive ? 'text-blue-600' : 'text-gray-400'
+                    isActive ? 'text-sky-700' : 'text-gray-400'
                   }`}
                 />
                 <span>{item.label}</span>
@@ -268,10 +268,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onOpenChangePassword();
                     onCloseMobile();
                   }}
-                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-gray-600 hover:bg-blue-50/70 hover:text-blue-700 transition-all text-left cursor-pointer"
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-gray-600 hover:bg-[#d7effb]/30 hover:text-sky-900 transition-all text-left cursor-pointer"
                   title="Đổi mật khẩu tài khoản giáo viên"
                 >
-                  <KeyRound className="w-4 h-4 text-blue-500" />
+                  <KeyRound className="w-4 h-4 text-sky-600" />
                   <span>Đổi mật khẩu GV</span>
                 </button>
               )}
@@ -311,13 +311,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all text-left cursor-pointer ${
                   currentView === 'settings'
-                    ? 'bg-blue-50 text-blue-700 shadow-xs ring-1 ring-blue-100'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-gradient-to-r from-[#d7effb] to-[#a7dff6]/40 text-sky-950 font-black shadow-2xs border border-[#a7dff6]'
+                    : 'text-gray-600 hover:bg-[#d7effb]/30 hover:text-sky-900'
                 }`}
               >
                 <Settings
                   className={`w-4 h-4 ${
-                    currentView === 'settings' ? 'text-blue-600' : 'text-gray-400'
+                    currentView === 'settings' ? 'text-sky-700' : 'text-gray-400'
                   }`}
                 />
                 <span>Cài đặt</span>
