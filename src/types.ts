@@ -78,7 +78,11 @@ export interface BoardNotice {
   title: string;
   content: string;
   type: NoticeType;
-  image?: string; // Base64 image data or URL
+  image?: string; // Legacy single image data or URL (backward compatibility)
+  images?: string[]; // Multiple images (Base64 data or URLs)
+  videoUrl?: string; // Video URL (YouTube, MP4, Google Drive, Vimeo...)
+  linkUrl?: string; // Web link, Google Forms, Drive document, etc.
+  linkTitle?: string; // Custom label for link
 }
 
 export interface SeatingLayout {
