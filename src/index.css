@@ -1,5 +1,29 @@
 @import "tailwindcss";
 
+:root {
+  --color-sky-light: #d7effb;
+  --color-sky-accent: #a7dff6;
+  --color-sky-primary: #0284c7;
+  --color-sky-dark: #0369a1;
+}
+
+/* User coordinated palette utilities */
+.bg-sky-pastel {
+  background-color: #d7effb;
+}
+
+.bg-sky-accent {
+  background-color: #a7dff6;
+}
+
+.border-sky-accent {
+  border-color: #a7dff6;
+}
+
+.border-sky-pastel {
+  border-color: #d7effb;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

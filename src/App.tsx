@@ -1145,11 +1145,11 @@ export default function App() {
 
           <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative">
             {/* Slim mobile-only bar to open drawer (strictly on mobile, hidden on md+) */}
-            <div className="md:hidden h-11 bg-white border-b border-gray-200 flex items-center justify-between px-3 shrink-0 z-20">
+            <div className="md:hidden h-11 bg-white border-b border-[#a7dff6]/60 flex items-center justify-between px-3 shrink-0 z-20">
               <button
                 type="button"
                 onClick={() => setIsMobileSidebarOpen(true)}
-                className="p-1.5 -ml-1 text-gray-700 hover:bg-gray-100 rounded-lg flex items-center gap-2 text-xs font-bold cursor-pointer"
+                className="p-1.5 -ml-1 text-gray-700 hover:bg-[#d7effb]/30 rounded-lg flex items-center gap-2 text-xs font-bold cursor-pointer"
                 aria-label="Mở menu"
               >
                 <Menu className="w-5 h-5 text-gray-700" />
@@ -1168,7 +1168,7 @@ export default function App() {
             </div>
 
             {/* Main content viewport: expands to bottom without wasted top header */}
-            <main className="flex-1 min-h-0 flex flex-col overflow-hidden p-2 sm:p-3 lg:p-4 bg-gray-50/60">
+            <main className="flex-1 min-h-0 flex flex-col overflow-hidden p-2 sm:p-3 lg:p-4 bg-gradient-to-br from-[#d7effb]/20 via-[#f8fafc] to-[#a7dff6]/15">
               {authRole === 'teacher' && currentView === 'dashboard' && (
                 <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
                   <DashboardView
